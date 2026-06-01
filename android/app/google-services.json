@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "572870336776",
+    "project_id": "game-booster-randy",
+    "storage_bucket": "game-booster-randy.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:572870336776:android:2a5bca0e0ab24abfd98cbd",
+        "android_client_info": {
+          "package_name": "com.example.admin_sensi_booster"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAFcx6a5qZR2KyLbRuXBfSehVQYsWhDqWs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,46 @@
+name: admin_sensi_booster
+description: "Admin Panel for Sensi Booster Pro with Hardware-ID Lock"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Backend & Auth
+  firebase_core: ^4.9.0
+  firebase_auth: ^6.5.1
+  cloud_firestore: ^6.4.1
+  
+  # State Management
+  flutter_riverpod: ^3.3.1
+  
+  # Hardware Security
+  device_info_plus: ^13.1.0
+  shared_preferences: ^2.2.2
+  
+  # UI & Modern Effects
+  google_fonts: ^8.1.0
+  font_awesome_flutter: ^11.0.0
+  flutter_animate: ^4.5.0
+  glass_kit: ^4.0.2
+  
+  # Utilities
+  intl: ^0.20.2
+  uuid: ^4.3.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  
+  # # Tambahkan assets jika diperlukan nantinya
+  # assets:
+  #   - assets/images/
+  #   - assets/icons/
