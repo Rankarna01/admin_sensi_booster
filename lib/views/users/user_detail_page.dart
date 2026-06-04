@@ -5,6 +5,7 @@ import '../../core/constants/app_colors.dart';
 import '../../providers/user_management_provider.dart';
 import '../../models/user_model.dart';
 import '../widgets/base_layout.dart'; // Grid background
+import '../../providers/package_provider.dart';
 
 class UserDetailPage extends ConsumerWidget {
   final UserModel user;
@@ -13,6 +14,13 @@ class UserDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 0. Ambil list user dari stream, cari user yang uid-nya sama agar tampilannya reactive!
+    final usersAsync = ref.watch(usersStreamProvider);
+    final currentUser = usersAsync.value?.firstWhere(
+      (u) => u.uid == user.uid,
+      orElse: () => user,
+    ) ?? user;
+
     return BaseLayout(
       child: Scaffold(
         backgroundColor: Colors.transparent, // Transparan agar BaseLayout terlihat
@@ -32,17 +40,17 @@ class UserDetailPage extends ConsumerWidget {
             children: [
               // 1. INFO CARD
               _buildSectionTitle("ACCOUNT INFO"),
-              _buildInfoCard(user),
+              _buildInfoCard(currentUser),
               const SizedBox(height: 30),
               
               // 2. PACKAGE CONFIGURATION
               _buildSectionTitle("PACKAGE SUBSCRIPTION"),
-              _buildPackageControl(context, ref, user),
+              _buildPackageControl(context, ref, currentUser),
               const SizedBox(height: 30),
               
               // 3. PAYMENT CONFIRMATION
               _buildSectionTitle("FINANCE & PAYMENT"),
-              _buildPaymentControl(context, ref, user),
+              _buildPaymentControl(context, ref, currentUser),
             ],
           ),
         ),
@@ -95,20 +103,43 @@ class UserDetailPage extends ConsumerWidget {
   }
 
   Widget _buildPackageControl(BuildContext context, WidgetRef ref, UserModel user) {
+    final pkgAsync = ref.watch(packageStreamProvider);
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.border),
       ),
-      child: Column(
-        children: [
-          _buildRadioOption(ref, "Free Tier", "free", user.statusVip, user.uid),
-          const Divider(color: AppColors.border, height: 1),
-          _buildRadioOption(ref, "Standard Boost", "standard", user.statusVip, user.uid),
-          const Divider(color: AppColors.border, height: 1),
-          _buildRadioOption(ref, "Super VIP Engine", "super_vip", user.statusVip, user.uid),
-        ],
+      child: pkgAsync.when(
+        data: (packages) {
+          if (packages.isEmpty) {
+            return const Padding(
+              padding: EdgeInsets.all(20),
+              child: Text("Belum ada data paket. Silakan tambahkan di menu Global Config.", style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+            );
+          }
+          return Column(
+            children: packages.asMap().entries.map((entry) {
+              int index = entry.key;
+              var pkg = entry.value;
+              return Column(
+                children: [
+                  _buildRadioOption(ref, pkg.name, pkg.name, user.statusVip, user.uid),
+                  if (index < packages.length - 1) const Divider(color: AppColors.border, height: 1),
+                ],
+              );
+            }).toList(),
+          );
+        },
+        loading: () => const Padding(
+          padding: EdgeInsets.all(20),
+          child: Center(child: CircularProgressIndicator(color: AppColors.neonGreen)),
+        ),
+        error: (e, _) => Padding(
+          padding: const EdgeInsets.all(20),
+          child: Text("Error: $e", style: const TextStyle(color: Colors.redAccent)),
+        ),
       ),
     );
   }

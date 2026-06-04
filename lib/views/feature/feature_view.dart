@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
+import '../../providers/client_provider.dart';
+import '../widgets/feature_card.dart';
 
-class FeatureView extends StatelessWidget {
+class FeatureView extends ConsumerWidget {
   const FeatureView({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pkgAsync = ref.watch(currentPackageProvider);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 100), // Bottom padding untuk navbar
       physics: const BouncingScrollPhysics(),
@@ -17,7 +22,7 @@ class FeatureView extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                "FEATURES",
+                "ADVANCED TWEAKS",
                 style: GoogleFonts.orbitron(
                   color: AppColors.neonGreen,
                   fontSize: 22,
@@ -37,83 +42,58 @@ class FeatureView extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // Mockup Card Fitur
-          _buildFeatureCard(
-            title: "Smart Switch DPI",
-            description: "Mengubah DPI dan resolusi otomatis dengan system dual mode yang disediakan.",
-            isActive: false,
-          ),
-          _buildFeatureCard(
-            title: "Sensitivity GameLab",
-            description: "Runtime intervention configs parameter sensitivity langsung ke game.",
-            isActive: true,
-            isVip: true,
-          ),
-          _buildFeatureCard(
-            title: "Touch Accelerator",
-            description: "Meningkatkan kecepatan dan responsibilitas sentuhan sesuai tingkat pengaturan.",
-            isActive: true,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFeatureCard({required String title, required String description, required bool isActive, bool isVip = false}) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border, width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          title,
-                          style: const TextStyle(color: AppColors.textWhite, fontSize: 14, fontWeight: FontWeight.bold),
-                        ),
-                        if (isVip) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                            decoration: BoxDecoration(color: AppColors.neonGreen, borderRadius: BorderRadius.circular(4)),
-                            child: Text("VIP", style: GoogleFonts.orbitron(color: Colors.black, fontSize: 8, fontWeight: FontWeight.bold)),
-                          )
-                        ]
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      description,
-                      style: const TextStyle(color: AppColors.textMuted, fontSize: 11, height: 1.4),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              // Switch Neon Green
-              Switch(
-                value: isActive,
-                onChanged: (val) {}, // Nanti dihubungkan ke provider
-                activeColor: AppColors.background,
-                activeTrackColor: AppColors.neonGreen,
-                inactiveThumbColor: AppColors.textMuted,
-                inactiveTrackColor: AppColors.background,
-              )
-            ],
+          pkgAsync.when(
+            data: (pkg) {
+              final features = pkg?.features ?? {};
+              return Column(
+                children: [
+                  FeatureCard(
+                    title: "Monitoring ROG",
+                    description: "Menampilkan FPS, Suhu CPU, dan Penggunaan RAM secara real-time seperti sistem ROG.",
+                    isActive: false,
+                    isAllowed: features['rog_monitor'] == true,
+                    onChanged: (val) {},
+                  ),
+                  FeatureCard(
+                    title: "Game Lab Sensi",
+                    description: "Runtime intervention configs parameter sensitivitas layar khusus game.",
+                    isActive: false,
+                    isAllowed: features['game_lab_sensi'] == true,
+                    onChanged: (val) {},
+                  ),
+                  FeatureCard(
+                    title: "CPU & RAM Tweaks",
+                    description: "Mengubah CPU Governor (Perf/Balance), Core Priority, dan Limit Memory Cache.",
+                    isActive: false,
+                    isAllowed: features['cpu_tweak'] == true,
+                    onChanged: (val) {},
+                  ),
+                  FeatureCard(
+                    title: "Smart Switch DPI",
+                    description: "Mengubah resolusi dan DPI Android paksa agar grafis game lebih tajam atau lebih lancar.",
+                    isActive: false,
+                    isAllowed: features['set_dpi'] == true,
+                    onChanged: (val) {},
+                  ),
+                  FeatureCard(
+                    title: "Floating Game",
+                    description: "Akses pintasan sistem booster pop-up mini di atas layar saat game berjalan.",
+                    isActive: false,
+                    isAllowed: features['floating_game'] == true,
+                    onChanged: (val) {},
+                  ),
+                  FeatureCard(
+                    title: "Graphics Engine Tweak",
+                    description: "Memaksa Anti-Aliasing (MSAA), Vsync, dan akselerasi GPU pada rendering game.",
+                    isActive: false,
+                    isAllowed: features['graphics_tweak'] == true,
+                    onChanged: (val) {},
+                  ),
+                ],
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator(color: AppColors.neonGreen)),
+            error: (e, _) => Center(child: Text("Error: $e", style: const TextStyle(color: Colors.redAccent))),
           ),
         ],
       ),
