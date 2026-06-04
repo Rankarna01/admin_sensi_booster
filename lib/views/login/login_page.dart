@@ -5,6 +5,7 @@ import '../../seeder/admin_seeder.dart';
 import '../../core/constants/app_colors.dart';
 import '../widgets/base_layout.dart'; // Import background grid
 import '../dashboard/admin_dashboard_page.dart';
+import '../layouts/client_main_layout.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -31,28 +32,40 @@ class _LoginPageState extends State<LoginPage> {
 
     setState(() { _isLoading = true; });
 
-    String? error = await _authService.loginAdmin(
+    String? result = await _authService.loginAndGetRole(
       _emailController.text.trim(),
       _passwordController.text.trim(),
     );
 
     setState(() { _isLoading = false; });
 
-    if (error != null) {
+    if (result != null && result.startsWith("ERROR:")) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error), backgroundColor: Colors.redAccent),
+          SnackBar(content: Text(result.replaceAll("ERROR: ", "")), backgroundColor: Colors.redAccent),
         );
       }
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Login Sukses!"), backgroundColor: AppColors.neonGreenDark),
+          SnackBar(
+            content: Text("Login Sukses sebagai ${result!.toUpperCase()}!"), 
+            backgroundColor: AppColors.neonGreenDark
+          ),
         );
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const AdminDashboardPage()),
-        );
+        
+        // Cek role untuk navigasi
+        if (result == "admin") {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const AdminDashboardPage()),
+          );
+        } else if (result == "user") {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const ClientMainLayout()),
+          );
+        }
       }
     }
   }

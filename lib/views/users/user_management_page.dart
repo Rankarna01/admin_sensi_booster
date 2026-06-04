@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
 import '../../providers/user_management_provider.dart';
 import '../../models/user_model.dart';
+import '../../providers/package_provider.dart';
+import '../../models/package_model.dart';
 import 'user_detail_page.dart'; // Import halaman detail
 
 class UserManagementPage extends ConsumerWidget {
@@ -13,6 +15,7 @@ class UserManagementPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final usersAsync = ref.watch(usersStreamProvider);
     final actionState = ref.watch(userActionProvider);
+    final packages = ref.watch(packageStreamProvider).value ?? [];
 
     ref.listen(userActionProvider, (previous, next) {
       next.whenOrNull(
@@ -39,7 +42,7 @@ class UserManagementPage extends ConsumerWidget {
               ),
               // Tombol Register User Baru
               GestureDetector(
-                onTap: () => _showRegisterModal(context, ref),
+                onTap: () => _showRegisterModal(context, ref, packages),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
@@ -130,10 +133,10 @@ class UserManagementPage extends ConsumerWidget {
   }
 
   // Modal Pop-Up Registrasi
-  void _showRegisterModal(BuildContext context, WidgetRef ref) {
+  void _showRegisterModal(BuildContext context, WidgetRef ref, List<PackageModel> packages) {
     final TextEditingController emailC = TextEditingController();
     final TextEditingController passC = TextEditingController();
-    String selectedTier = 'free';
+    PackageModel? selectedPackage = packages.isNotEmpty ? packages.first : null;
 
     showModalBottomSheet(
       context: context,
@@ -163,27 +166,36 @@ class UserManagementPage extends ConsumerWidget {
                     decoration: const InputDecoration(labelText: "Password", labelStyle: TextStyle(color: AppColors.textMuted)),
                   ),
                   const SizedBox(height: 20),
-                  DropdownButtonFormField<String>(
-                    value: selectedTier,
+                  DropdownButtonFormField<PackageModel>(
+                    value: selectedPackage,
                     dropdownColor: AppColors.card,
                     style: const TextStyle(color: Colors.white),
                     decoration: const InputDecoration(labelText: "Package Tier", labelStyle: TextStyle(color: AppColors.textMuted)),
-                    items: const [
-                      DropdownMenuItem(value: 'free', child: Text("Free")),
-                      DropdownMenuItem(value: 'standard', child: Text("Standard")),
-                      DropdownMenuItem(value: 'super_vip', child: Text("Super VIP")),
-                    ],
-                    onChanged: (val) => setModalState(() => selectedTier = val!),
+                    items: packages.map((pkg) {
+                      return DropdownMenuItem<PackageModel>(
+                        value: pkg,
+                        child: Text(pkg.name.toUpperCase()),
+                      );
+                    }).toList(),
+                    onChanged: (val) => setModalState(() => selectedPackage = val),
                   ),
                   const SizedBox(height: 30),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
-                        ref.read(userActionProvider.notifier).registerNewUser(emailC.text, passC.text, selectedTier);
+                      onPressed: selectedPackage == null ? null : () {
+                        ref.read(userActionProvider.notifier).registerNewUser(
+                          emailC.text, 
+                          passC.text, 
+                          selectedPackage!.name.toLowerCase(),
+                          selectedPackage!.durationDays,
+                          selectedPackage!.price
+                        );
                         Navigator.pop(context); // Tutup modal
                       },
-                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.neonGreen),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: selectedPackage != null ? AppColors.neonGreen : AppColors.textMuted
+                      ),
                       child: Text("CREATE ACCOUNT", style: GoogleFonts.orbitron(color: Colors.black, fontWeight: FontWeight.bold)),
                     ),
                   ),

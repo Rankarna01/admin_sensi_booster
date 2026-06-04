@@ -5,7 +5,12 @@ import '../../core/constants/app_colors.dart';
 import '../../providers/dashboard_provider.dart';
 import '../widgets/admin_bottom_nav.dart';
 import '../users/user_management_page.dart'; // Import halaman user mgmt
+import '../finance/finance_page.dart'; // Import halaman finance
 import '../config/config_page.dart'; // Import config page
+
+import 'package:firebase_auth/firebase_auth.dart';
+import '../login/login_page.dart';
+
 class AdminDashboardPage extends ConsumerStatefulWidget {
   const AdminDashboardPage({super.key});
 
@@ -24,8 +29,8 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
     final List<Widget> adminMenus = [
       _buildHomeView(stats),           // Index 0: Dashboard Home
       const UserManagementPage(),       // Index 1: Manajemen User (Dinamis)
-      const Center(child: Text("Finance View Coming Soon")), // Index 2: Keuangan
-      const ConfigPage(), // Index 3: Config Fitur
+      const FinancePage(),              // Index 2: Keuangan (Sudah Terhubung)
+      const ConfigPage(),               // Index 3: Config Fitur
     ];
 
     return Scaffold(
@@ -257,10 +262,42 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Container(width: 3, height: 16, color: AppColors.neonGreen),
-            const SizedBox(width: 8),
-            Text("ACTION CENTER", style: GoogleFonts.orbitron(color: AppColors.textWhite, fontSize: 14, fontWeight: FontWeight.bold)),
+            Row(
+              children: [
+                Container(width: 3, height: 16, color: AppColors.neonGreen),
+                const SizedBox(width: 8),
+                Text("ACTION CENTER", style: GoogleFonts.orbitron(color: AppColors.textWhite, fontSize: 14, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            GestureDetector(
+              onTap: () async {
+                await FirebaseAuth.instance.signOut();
+                if (mounted) {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (context) => const LoginPage()),
+                    (route) => false,
+                  );
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.redAccent.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.redAccent),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.logout, color: Colors.redAccent, size: 14),
+                    const SizedBox(width: 4),
+                    Text("LOGOUT", style: GoogleFonts.orbitron(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 20),

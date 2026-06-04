@@ -26,7 +26,7 @@ class UserManagementNotifier extends Notifier<AsyncValue<void>> {
   }
 
   // FUNGSI 1: Mendaftarkan User Baru oleh Admin (Dengan Generator Referral)
-  Future<void> registerNewUser(String email, String password, String tier) async {
+  Future<void> registerNewUser(String email, String password, String tier, int durationDays, double price) async {
     state = const AsyncValue.loading();
     try {
       // TRIK: Membuat instance Firebase sementara agar Admin tidak ter-logout
@@ -45,11 +45,8 @@ class UserManagementNotifier extends Notifier<AsyncValue<void>> {
       String generatedCode = String.fromCharCodes(Iterable.generate(
           6, (_) => chars.codeUnitAt(rnd.nextInt(chars.length))));
 
-      // SET MASA AKTIF DEFAULT (Contoh: Free 3 hari, Standard 30 hari, VIP 30 hari)
-      DateTime expirationDate = DateTime.now();
-      if (tier == 'free') expirationDate = expirationDate.add(const Duration(days: 3));
-      else if (tier == 'standard') expirationDate = expirationDate.add(const Duration(days: 30));
-      else if (tier == 'super_vip') expirationDate = expirationDate.add(const Duration(days: 30));
+      // SET MASA AKTIF MENGGUNAKAN DURATION DARI PACKAGE
+      DateTime expirationDate = DateTime.now().add(Duration(days: durationDays));
 
       // Buat struktur data di Firestore
       UserModel newUser = UserModel(
@@ -64,7 +61,26 @@ class UserManagementNotifier extends Notifier<AsyncValue<void>> {
       );
 
       // Gunakan ref.read untuk mengeksekusi fungsi database
-      await ref.read(firestoreProvider).collection('users').doc(cred.user!.uid).set(newUser.toMap());
+      final firestore = ref.read(firestoreProvider);
+      final batch = firestore.batch();
+
+      // 1. Simpan data user
+      batch.set(firestore.collection('users').doc(cred.user!.uid), newUser.toMap());
+
+      // 2. Jika paket berbayar, buat invoice transaksi 'unpaid' / 'paid' agar muncul di Finance
+      if (price > 0) {
+        final txRef = firestore.collection('transactions').doc();
+        batch.set(txRef, {
+          'userUid': cred.user!.uid,
+          'userEmail': email,
+          'packageName': tier,
+          'amount': price,
+          'status': 'unpaid', // Masuk ke Finance sebagai 'Waiting Confirmation'
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      await batch.commit();
 
       // Hapus instance sementara
       await tempApp.delete();

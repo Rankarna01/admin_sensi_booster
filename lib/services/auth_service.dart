@@ -6,42 +6,36 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // Fungsi untuk login dan verifikasi Hardware ID
-  Future<String?> loginAdmin(String email, String password) async {
+  // Fungsi untuk login dan menentukan role (admin / user)
+  Future<String?> loginAndGetRole(String email, String password) async {
     try {
       // 1. Proses Login ke Firebase Auth
       UserCredential cred = await _auth.signInWithEmailAndPassword(
           email: email, password: password);
       
-      // --- DIBYPASS SEMENTARA AGAR BISA LOGIN ---
-      // 2. Ambil Hardware ID dari HP yang sedang dipakai
-      // String currentDeviceId = await DeviceUtil.getHardwareId();
+      String uid = cred.user!.uid;
 
-      // 3. Cek data admin di Firestore (Koleksi: admins, Document: uid)
-      // DocumentSnapshot adminDoc = await _db.collection('admins').doc(cred.user!.uid).get();
+      // 2. Cek apakah user ini Admin
+      DocumentSnapshot adminDoc = await _db.collection('admins').doc(uid).get();
+      if (adminDoc.exists) {
+        return "admin";
+      }
 
-      // Jika data tidak ada di koleksi admins
-      // if (!adminDoc.exists) {
-      //   await _auth.signOut();
-      //   return "Akses Ditolak: Akun ini bukan Admin!";
-      // }
+      // 3. Cek apakah user ini Client
+      DocumentSnapshot userDoc = await _db.collection('users').doc(uid).get();
+      if (userDoc.exists) {
+        // Cek hardware id atau pengecekan lainnya nanti
+        return "user";
+      }
 
-      // Ambil Hardware ID yang terdaftar di Firestore
-      // String registeredId = adminDoc.get('hardwareId');
-
-      // 4. Bandingkan Hardware ID
-      // if (registeredId != currentDeviceId) {
-      //   await _auth.signOut();
-      //   return "Akses Ditolak: Hardware ID tidak cocok! Gunakan HP Admin yang terdaftar.";
-      // }
-
-      // Jika semua lolos, kembalikan null (pertanda sukses tanpa error)
-      return null;
+      // Jika tidak ada di keduanya
+      await _auth.signOut();
+      return "ERROR: Akun tidak terdaftar di database sistem.";
       
     } on FirebaseAuthException catch (e) {
-      return e.message; // Error dari Firebase (contoh: password salah)
+      return "ERROR: ${e.message}"; // Error dari Firebase (contoh: password salah)
     } catch (e) {
-      return e.toString(); // Error umum lainnya
+      return "ERROR: ${e.toString()}"; // Error umum lainnya
     }
   }
 }
