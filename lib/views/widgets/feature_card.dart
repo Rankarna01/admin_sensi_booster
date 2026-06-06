@@ -8,6 +8,7 @@ class FeatureCard extends StatelessWidget {
   final bool isActive;
   final bool isAllowed;
   final ValueChanged<bool>? onChanged;
+  final Widget? extraContent;
 
   const FeatureCard({
     super.key,
@@ -16,6 +17,7 @@ class FeatureCard extends StatelessWidget {
     required this.isActive,
     required this.isAllowed,
     this.onChanged,
+    this.extraContent,
   });
 
   @override
@@ -85,6 +87,12 @@ class FeatureCard extends StatelessWidget {
               )
             ],
           ),
+          if (isActive && extraContent != null) ...[
+            const SizedBox(height: 16),
+            const Divider(color: AppColors.border),
+            const SizedBox(height: 16),
+            extraContent!,
+          ]
         ],
       ),
     );
