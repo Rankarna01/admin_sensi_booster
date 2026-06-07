@@ -34,15 +34,27 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
   // Method Channel ke Native Kotlin Overlay
   static const MethodChannel _overlayChannel = MethodChannel('com.mfw.sensi_booster/overlay');
 
+  late TextEditingController _dpiController;
+  late TextEditingController _resController;
+
   @override
   void initState() {
     super.initState();
+    _dpiController = TextEditingController(text: _dpiValue.toInt().toString());
+    _resController = TextEditingController(text: _resScale.toInt().toString());
     _checkInitialSmartTouchIntent();
     _overlayChannel.setMethodCallHandler((call) async {
       if (call.method == 'showSmartTouchDashboard') {
         _showSmartTouchDashboard();
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _dpiController.dispose();
+    _resController.dispose();
+    super.dispose();
   }
 
   Future<void> _checkInitialSmartTouchIntent() async {
@@ -212,10 +224,16 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // DPI Setting
-        _buildSliderSetting("DPI Setting (Density)", _dpiValue, 120, 1000, "dpi", (val) => setState(() => _dpiValue = val)),
+        _buildTextFieldSetting("DPI Setting (Density)", _dpiController, "dpi", (val) {
+          double? parsed = double.tryParse(val);
+          if (parsed != null) setState(() => _dpiValue = parsed);
+        }),
         const SizedBox(height: 12),
         // Resolution Scale
-        _buildSliderSetting("Resolution Scale", _resScale, 50, 200, "%", (val) => setState(() => _resScale = val)),
+        _buildTextFieldSetting("Resolution Scale", _resController, "%", (val) {
+          double? parsed = double.tryParse(val);
+          if (parsed != null) setState(() => _resScale = parsed);
+        }),
         const SizedBox(height: 12),
         // Render Scale
         _buildSliderSetting("Render Scale", _renderScale, 50, 100, "%", (val) => setState(() => _renderScale = val)),
@@ -268,7 +286,7 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(title, style: GoogleFonts.orbitron(color: AppColors.textWhite, fontSize: 12, fontWeight: FontWeight.bold)),
-            Text("${value.toInt()}$unit", style: GoogleFonts.orbitron(color: AppColors.neonGreen, fontSize: 12, fontWeight: FontWeight.bold)),
+            Text("\${value.toInt()}$unit", style: GoogleFonts.orbitron(color: AppColors.neonGreen, fontSize: 12, fontWeight: FontWeight.bold)),
           ],
         ),
         SliderTheme(
@@ -285,6 +303,41 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
             value: value,
             min: min,
             max: max,
+            onChanged: onChanged,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextFieldSetting(String title, TextEditingController controller, String unit, ValueChanged<String> onChanged) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(title, style: GoogleFonts.orbitron(color: AppColors.textWhite, fontSize: 12, fontWeight: FontWeight.bold)),
+        SizedBox(
+          width: 90,
+          child: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            style: GoogleFonts.orbitron(color: AppColors.neonGreen, fontSize: 12, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+            decoration: InputDecoration(
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+              suffixText: unit,
+              suffixStyle: GoogleFonts.orbitron(color: AppColors.textMuted, fontSize: 10),
+              enabledBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: AppColors.border),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: AppColors.neonGreen),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              filled: true,
+              fillColor: AppColors.background,
+            ),
             onChanged: onChanged,
           ),
         ),
