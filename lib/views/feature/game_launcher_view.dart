@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:installed_apps/installed_apps.dart';
 import 'package:installed_apps/app_info.dart';
@@ -7,6 +6,7 @@ import 'package:app_usage/app_usage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../../core/constants/app_colors.dart';
+import 'game_boost_landscape_view.dart';
 
 class GameLauncherView extends StatefulWidget {
   const GameLauncherView({super.key});
@@ -19,8 +19,6 @@ class _GameLauncherViewState extends State<GameLauncherView> {
   List<Map<String, dynamic>> _addedGames = [];
   Map<String, Duration> _usageStats = {};
   bool _isLoading = true;
-
-  static const MethodChannel _overlayChannel = MethodChannel('com.mfw.sensi_booster/overlay');
 
   @override
   void initState() {
@@ -35,21 +33,13 @@ class _GameLauncherViewState extends State<GameLauncherView> {
     
     if (savedData != null) {
       final List<dynamic> decoded = jsonDecode(savedData);
-      List<Map<String, dynamic>> tempGames = decoded.map((e) => Map<String, dynamic>.from(e)).toList();
-      
-      List<Map<String, dynamic>> validGames = [];
-      for (var game in tempGames) {
-        try {
-          final info = await InstalledApps.getAppInfo(game['package']);
-          if (info != null) validGames.add(game);
-        } catch (e) {
-          // Ignore app not found
-        }
-      }
-      _addedGames = validGames;
-      await _saveGames();
+      _addedGames = decoded.map((e) => Map<String, dynamic>.from(e)).toList();
     } else {
-      _addedGames = [];
+      // Default mock data if none added
+      _addedGames = [
+        {"name": "Free Fire", "package": "com.dts.freefireth"},
+        {"name": "Mobile Legends: Bang Bang", "package": "com.mobile.legends"},
+      ];
       await _saveGames();
     }
     
@@ -100,43 +90,22 @@ class _GameLauncherViewState extends State<GameLauncherView> {
     );
   }
 
-  Future<void> _launchGame(String name, String packageName) async {
-    // 1. Cek Permission Overlay
-    final bool hasPerm = await _overlayChannel.invokeMethod('checkPermission') ?? false;
-    if (!hasPerm) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Meminta Izin Floating Overlay..."), backgroundColor: Colors.orange)
-        );
-      }
-      await _overlayChannel.invokeMethod('requestPermission');
-      return; // Tunggu user berikan izin dulu
-    }
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Memulai Boost untuk \$name...", style: GoogleFonts.orbitron()),
-          backgroundColor: AppColors.neonGreen,
-        )
-      );
-    }
-
-    // 2. Tampilkan Overlay
-    await _overlayChannel.invokeMethod('startOverlay', {
-      'showRam': true,
-      'showBattery': true,
-      'showSuhu': true,
-      'showClock': true,
-    });
-
-    // 3. Buka Aplikasi Game
-    InstalledApps.startApp(packageName);
+  void _navigateToBoostLandscape(String name, String packageName, String durationStr) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => GameBoostLandscapeView(
+          appName: name,
+          packageName: packageName,
+          durationStr: durationStr,
+        ),
+      ),
+    );
   }
 
   String _formatDuration(Duration duration) {
     if (duration.inHours > 0) {
-      return "${duration.inHours} Jam ${duration.inMinutes.remainder(60)} Menit";
+      return "${duration.inHours}j ${duration.inMinutes.remainder(60)}m";
     }
     return "${duration.inMinutes} Menit";
   }
@@ -148,25 +117,20 @@ class _GameLauncherViewState extends State<GameLauncherView> {
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
-        title: Text("GAME SPACE", style: GoogleFonts.orbitron(color: AppColors.neonGreen, fontWeight: FontWeight.bold)),
+        title: Text("GAME SPACE", style: GoogleFonts.orbitron(color: AppColors.neonGreen, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
         iconTheme: const IconThemeData(color: AppColors.textWhite),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: Center(
-              child: InkWell(
-                onTap: _addGame,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: AppColors.neonGreen.withOpacity(0.2),
-                    border: Border.all(color: AppColors.neonGreen, width: 1.5),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.add, color: AppColors.neonGreen, size: 20),
-                ),
-              ),
+          Container(
+            margin: const EdgeInsets.only(right: 15),
+            decoration: BoxDecoration(
+              border: Border.all(color: AppColors.neonGreen),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.add, color: AppColors.neonGreen, size: 20),
+              onPressed: _addGame,
+              constraints: const BoxConstraints(),
+              padding: const EdgeInsets.all(8),
             ),
           )
         ],
@@ -174,7 +138,7 @@ class _GameLauncherViewState extends State<GameLauncherView> {
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator(color: AppColors.neonGreen))
         : _addedGames.isEmpty 
-          ? Center(child: Text("Belum ada game ditambahkan", style: TextStyle(color: AppColors.textMuted)))
+          ? const Center(child: Text("Belum ada game ditambahkan", style: TextStyle(color: AppColors.textMuted)))
           : ListView.builder(
               padding: const EdgeInsets.all(20),
               itemCount: _addedGames.length,
@@ -182,72 +146,82 @@ class _GameLauncherViewState extends State<GameLauncherView> {
                 final game = _addedGames[index];
                 final String pkgName = game["package"]!;
                 final duration = _usageStats[pkgName];
-                final String durationStr = duration != null ? _formatDuration(duration) : "0m (7 Hari Terakhir)";
+                final String durationStr = duration != null ? _formatDuration(duration) : "0 Menit";
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 15),
-                  padding: const EdgeInsets.all(15),
+                  padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 20),
                   decoration: BoxDecoration(
                     color: AppColors.card,
                     borderRadius: BorderRadius.circular(15),
-                    border: Border.all(color: AppColors.border),
+                    border: Border.all(color: Colors.white10),
                   ),
                   child: Row(
                     children: [
+                      // App Icon
                       FutureBuilder<AppInfo?>(
                         future: InstalledApps.getAppInfo(pkgName),
                         builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
-                            return _buildPlaceholderIcon();
-                          }
                           if (snapshot.hasData && snapshot.data?.icon != null) {
-                            return ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: Image.memory(
-                                snapshot.data!.icon!,
-                                width: 50,
-                                height: 50,
-                                fit: BoxFit.cover,
+                            return Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 10)],
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.memory(
+                                  snapshot.data!.icon!,
+                                  width: 50,
+                                  height: 50,
+                                  fit: BoxFit.cover,
+                                ),
                               ),
                             );
                           }
-                          return _buildPlaceholderIcon();
+                          return Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: AppColors.border,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.videogame_asset, color: AppColors.textMuted),
+                          );
                         },
                       ),
                       const SizedBox(width: 15),
+                      // App Name & Duration
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(game["name"]!, style: const TextStyle(color: AppColors.textWhite, fontSize: 16, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 6),
                             Row(
                               children: [
-                                const Icon(Icons.timer_outlined, color: AppColors.neonGreen, size: 14),
+                                const Icon(Icons.timer_outlined, color: AppColors.neonGreen, size: 12),
                                 const SizedBox(width: 4),
-                                Text(durationStr, style: GoogleFonts.orbitron(color: AppColors.neonGreen, fontSize: 10, fontWeight: FontWeight.bold)),
+                                Text(durationStr, style: const TextStyle(color: AppColors.neonGreen, fontSize: 12)),
                               ],
                             ),
                           ],
                         ),
                       ),
+                      // Boost Button
                       GestureDetector(
-                        onTap: () => _launchGame(game["name"]!, pkgName),
+                        onTap: () => _navigateToBoostLandscape(game["name"]!, pkgName, durationStr),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [AppColors.neonGreen.withOpacity(0.9), AppColors.neonGreen.withOpacity(0.4)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.neonGreen, width: 1.5),
+                            color: AppColors.neonGreen.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.neonGreen),
                             boxShadow: [
-                              BoxShadow(color: AppColors.neonGreen.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))
+                              BoxShadow(color: AppColors.neonGreen.withOpacity(0.3), blurRadius: 10, spreadRadius: -2)
                             ]
                           ),
-                          child: Text("BOOST", style: GoogleFonts.orbitron(color: AppColors.background, fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1.5)),
+                          child: Text("BOOST", style: GoogleFonts.orbitron(color: AppColors.textWhite, fontWeight: FontWeight.bold, fontSize: 14)),
                         ),
                       )
                     ],
@@ -255,18 +229,6 @@ class _GameLauncherViewState extends State<GameLauncherView> {
                 );
               },
             ),
-    );
-  }
-
-  Widget _buildPlaceholderIcon() {
-    return Container(
-      width: 50,
-      height: 50,
-      decoration: BoxDecoration(
-        color: AppColors.border,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: const Icon(Icons.videogame_asset, color: AppColors.textMuted),
     );
   }
 }
@@ -290,9 +252,7 @@ class _AppSelectorState extends State<_AppSelector> {
   }
 
   Future<void> _loadApps() async {
-    // getInstalledApps(excludeSystemApps, withIcon)
     List<AppInfo> apps = await InstalledApps.getInstalledApps(excludeSystemApps: true, withIcon: true);
-    // Filter basic
     apps.sort((a, b) => (a.name ?? "").compareTo(b.name ?? ""));
     setState(() {
       _apps = apps;
@@ -307,7 +267,7 @@ class _AppSelectorState extends State<_AppSelector> {
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          Text("Pilih Game / Aplikasi", style: GoogleFonts.orbitron(color: AppColors.neonGreen, fontSize: 18, fontWeight: FontWeight.bold)),
+          Text("Pilih Game", style: GoogleFonts.orbitron(color: AppColors.neonGreen, fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 20),
           Expanded(
             child: _loading
@@ -319,9 +279,9 @@ class _AppSelectorState extends State<_AppSelector> {
                     return ListTile(
                       leading: app.icon != null 
                         ? Image.memory(app.icon!, width: 40, height: 40)
-                        : const Icon(Icons.android, color: AppColors.textWhite),
-                      title: Text(app.name ?? "Unknown", style: const TextStyle(color: AppColors.textWhite)),
-                      subtitle: Text(app.packageName, style: const TextStyle(color: AppColors.textMuted, fontSize: 10)),
+                        : const Icon(Icons.android, color: Colors.white),
+                      title: Text(app.name ?? "Unknown", style: const TextStyle(color: Colors.white)),
+                      subtitle: Text(app.packageName, style: const TextStyle(color: Colors.white54, fontSize: 10)),
                       onTap: () => widget.onAppSelected(app),
                     );
                   },

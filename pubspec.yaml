@@ -33,6 +33,8 @@ dependencies:
   uuid: ^4.3.3
   installed_apps: ^2.1.1
   app_usage: ^4.1.0
+  image_picker: ^1.2.2
+  battery_plus: ^7.0.0
 
 dev_dependencies:
   flutter_test:

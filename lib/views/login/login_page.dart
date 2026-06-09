@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/auth_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../seeder/admin_seeder.dart';
 import '../../core/constants/app_colors.dart';
 import '../widgets/base_layout.dart'; // Import background grid
@@ -53,6 +54,10 @@ class _LoginPageState extends State<LoginPage> {
             backgroundColor: AppColors.neonGreenDark
           ),
         );
+        // Simpan sesi login selama 30 hari
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('login_date', DateTime.now().toIso8601String());
+        await prefs.setString('user_role', result);
         
         // Cek role untuk navigasi
         if (result == "admin") {
