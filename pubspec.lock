@@ -25,6 +25,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "10.0.1"
+  app_usage:
+    dependency: "direct main"
+    description:
+      name: app_usage
+      sha256: "4b2f192896bcaf074c1191484d5a37f12aeaaa75d3f56c401c05576833836b11"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.1.0"
   args:
     dependency: transitive
     description:
@@ -360,6 +368,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.1.2"
+  installed_apps:
+    dependency: "direct main"
+    description:
+      name: installed_apps
+      sha256: "62b9cb196e2b34558ef0586024251e5dcc5a08199ea0c55c708f0ecc53116341"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.1.1"
   intl:
     dependency: "direct main"
     description:

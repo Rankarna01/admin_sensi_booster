@@ -28,12 +28,13 @@ class PackageModel {
         'speed_test': false,
         'latency_mode': false,
         'game_lab_sensi': false,
-        'cpu_tweak': false, // Mencakup core priority, governor, RAM
+        'cpu_tweak': false,
         'set_dpi': false,
         'floating_game': false,
         'crosshair': false,
         'rog_monitor': false,
         'graphics_tweak': false,
+        'game_space': false,
       }),
     );
   }
