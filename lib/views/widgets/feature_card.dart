@@ -43,12 +43,16 @@ class FeatureCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          title,
-                          style: TextStyle(
-                            color: isAllowed ? AppColors.textWhite : AppColors.textMuted, 
-                            fontSize: 14, 
-                            fontWeight: FontWeight.bold
+                        Flexible(
+                          child: Text(
+                            title,
+                            style: TextStyle(
+                              color: isAllowed ? AppColors.textWhite : AppColors.textMuted, 
+                              fontSize: 14, 
+                              fontWeight: FontWeight.bold
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         if (!isAllowed) ...[

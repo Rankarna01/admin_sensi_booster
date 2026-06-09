@@ -21,6 +21,7 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
   bool _showBattery = true;
   bool _showSuhu = true;
   bool _showClock = true;
+  bool _showFps = true; // NEW
 
   // Method Channel ke Native Kotlin Overlay
   static const MethodChannel _overlayChannel = MethodChannel('com.mfw.sensi_booster/overlay');
@@ -46,6 +47,7 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
         'showBattery': _showBattery,
         'showSuhu': _showSuhu,
         'showClock': _showClock,
+        'showFps': _showFps,
       });
       
       if (mounted) {
@@ -73,14 +75,19 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  "ADVANCED TWEAKS",
-                  style: GoogleFonts.orbitron(
-                    color: AppColors.neonGreen,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    "ADVANCED TWEAKS",
+                    style: GoogleFonts.orbitron(
+                      color: AppColors.neonGreen,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
@@ -133,27 +140,36 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
       children: [
         Text("Select Monitor", style: GoogleFonts.orbitron(color: AppColors.textMuted, fontSize: 12, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            _buildMonitorChip("Monitor RAM", Icons.memory, _showRam, (v) {
-              setState(() => _showRam = v);
-              if (_activeFeatures['floating_game'] == true) _handleFloatingGameToggle(true);
-            }),
-            _buildMonitorChip("Monitor Battery", Icons.battery_charging_full, _showBattery, (v) {
-              setState(() => _showBattery = v);
-              if (_activeFeatures['floating_game'] == true) _handleFloatingGameToggle(true);
-            }),
-            _buildMonitorChip("Monitor Suhu", Icons.thermostat, _showSuhu, (v) {
-              setState(() => _showSuhu = v);
-              if (_activeFeatures['floating_game'] == true) _handleFloatingGameToggle(true);
-            }),
-            _buildMonitorChip("Monitor Jam", Icons.access_time, _showClock, (v) {
-              setState(() => _showClock = v);
-              if (_activeFeatures['floating_game'] == true) _handleFloatingGameToggle(true);
-            }),
-          ],
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _buildMonitorChip("Monitor FPS", Icons.speed, _showFps, (v) {
+                setState(() => _showFps = v);
+                if (_activeFeatures['floating_game'] == true) _handleFloatingGameToggle(true);
+              }),
+              const SizedBox(width: 10),
+              _buildMonitorChip("Monitor RAM", Icons.memory, _showRam, (v) {
+                setState(() => _showRam = v);
+                if (_activeFeatures['floating_game'] == true) _handleFloatingGameToggle(true);
+              }),
+              const SizedBox(width: 10),
+              _buildMonitorChip("Monitor Battery", Icons.battery_charging_full, _showBattery, (v) {
+                setState(() => _showBattery = v);
+                if (_activeFeatures['floating_game'] == true) _handleFloatingGameToggle(true);
+              }),
+              const SizedBox(width: 10),
+              _buildMonitorChip("Monitor Suhu", Icons.thermostat, _showSuhu, (v) {
+                setState(() => _showSuhu = v);
+                if (_activeFeatures['floating_game'] == true) _handleFloatingGameToggle(true);
+              }),
+              const SizedBox(width: 10),
+              _buildMonitorChip("Monitor Jam", Icons.access_time, _showClock, (v) {
+                setState(() => _showClock = v);
+                if (_activeFeatures['floating_game'] == true) _handleFloatingGameToggle(true);
+              }),
+            ],
+          ),
         ),
       ],
     );

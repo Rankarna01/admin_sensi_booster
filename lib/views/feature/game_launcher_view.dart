@@ -35,13 +35,21 @@ class _GameLauncherViewState extends State<GameLauncherView> {
     
     if (savedData != null) {
       final List<dynamic> decoded = jsonDecode(savedData);
-      _addedGames = decoded.map((e) => Map<String, dynamic>.from(e)).toList();
+      List<Map<String, dynamic>> tempGames = decoded.map((e) => Map<String, dynamic>.from(e)).toList();
+      
+      List<Map<String, dynamic>> validGames = [];
+      for (var game in tempGames) {
+        try {
+          final info = await InstalledApps.getAppInfo(game['package']);
+          if (info != null) validGames.add(game);
+        } catch (e) {
+          // Ignore app not found
+        }
+      }
+      _addedGames = validGames;
+      await _saveGames();
     } else {
-      // Default mock data if none added
-      _addedGames = [
-        {"name": "Free Fire", "package": "com.dts.freefireth"},
-        {"name": "Mobile Legends", "package": "com.mobile.legends"},
-      ];
+      _addedGames = [];
       await _saveGames();
     }
     
@@ -128,9 +136,9 @@ class _GameLauncherViewState extends State<GameLauncherView> {
 
   String _formatDuration(Duration duration) {
     if (duration.inHours > 0) {
-      return "\${duration.inHours}j \${duration.inMinutes.remainder(60)}m";
+      return "${duration.inHours} Jam ${duration.inMinutes.remainder(60)} Menit";
     }
-    return "\${duration.inMinutes}m";
+    return "${duration.inMinutes} Menit";
   }
 
   @override
@@ -143,9 +151,23 @@ class _GameLauncherViewState extends State<GameLauncherView> {
         title: Text("GAME SPACE", style: GoogleFonts.orbitron(color: AppColors.neonGreen, fontWeight: FontWeight.bold)),
         iconTheme: const IconThemeData(color: AppColors.textWhite),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline, color: AppColors.neonGreen),
-            onPressed: _addGame,
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: Center(
+              child: InkWell(
+                onTap: _addGame,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.neonGreen.withOpacity(0.2),
+                    border: Border.all(color: AppColors.neonGreen, width: 1.5),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.add, color: AppColors.neonGreen, size: 20),
+                ),
+              ),
+            ),
           )
         ],
       ),
@@ -199,18 +221,34 @@ class _GameLauncherViewState extends State<GameLauncherView> {
                           children: [
                             Text(game["name"]!, style: const TextStyle(color: AppColors.textWhite, fontSize: 16, fontWeight: FontWeight.bold)),
                             const SizedBox(height: 4),
-                            Text("⏰ \$durationStr", style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                            Row(
+                              children: [
+                                const Icon(Icons.timer_outlined, color: AppColors.neonGreen, size: 14),
+                                const SizedBox(width: 4),
+                                Text(durationStr, style: GoogleFonts.orbitron(color: AppColors.neonGreen, fontSize: 10, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
                           ],
                         ),
                       ),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.neonGreen.withOpacity(0.2),
-                          side: const BorderSide(color: AppColors.neonGreen),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      GestureDetector(
+                        onTap: () => _launchGame(game["name"]!, pkgName),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [AppColors.neonGreen.withOpacity(0.9), AppColors.neonGreen.withOpacity(0.4)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.neonGreen, width: 1.5),
+                            boxShadow: [
+                              BoxShadow(color: AppColors.neonGreen.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))
+                            ]
+                          ),
+                          child: Text("BOOST", style: GoogleFonts.orbitron(color: AppColors.background, fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1.5)),
                         ),
-                        onPressed: () => _launchGame(game["name"]!, pkgName),
-                        child: Text("BOOST", style: GoogleFonts.orbitron(color: AppColors.neonGreen, fontWeight: FontWeight.bold, fontSize: 12)),
                       )
                     ],
                   ),

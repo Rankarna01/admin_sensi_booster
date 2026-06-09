@@ -73,6 +73,7 @@ class MainActivity : FlutterActivity() {
                         intent.putExtra("showBattery", call.argument<Boolean>("showBattery") ?: true)
                         intent.putExtra("showSuhu", call.argument<Boolean>("showSuhu") ?: true)
                         intent.putExtra("showClock", call.argument<Boolean>("showClock") ?: true)
+                        intent.putExtra("showFps", call.argument<Boolean>("showFps") ?: true)
                         startService(intent)
                         result.success(true)
                     } else {
