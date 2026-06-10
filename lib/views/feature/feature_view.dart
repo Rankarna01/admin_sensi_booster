@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:flutter/foundation.dart';
 import '../../core/constants/app_colors.dart';
 import '../../providers/client_provider.dart';
 import '../widgets/feature_card.dart';
@@ -29,6 +31,15 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
     setState(() => _activeFeatures['floating_game'] = isActive);
     
     if (isActive) {
+      if (kIsWeb) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Web Mode: Floating Tools preview only", style: GoogleFonts.inter(fontWeight: FontWeight.w500)), backgroundColor: AppColors.neonGreenDark),
+          );
+        }
+        return;
+      }
+
       final bool hasPerm = await _overlayChannel.invokeMethod('checkPermission') ?? false;
       if (!hasPerm) {
         if (mounted) {
@@ -58,6 +69,7 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
         );
       }
     } else {
+      if (kIsWeb) return;
       await _overlayChannel.invokeMethod('stopOverlay');
     }
   }
@@ -110,6 +122,7 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
                     FeatureCard(
                       title: "Floating Game Tools",
                       description: "Info performa melayang di layar.",
+                      iconWidget: const FaIcon(FontAwesomeIcons.layerGroup),
                       isActive: _activeFeatures['floating_game'] ?? false,
                       isAllowed: features['floating_game'] == true,
                       onChanged: _handleFloatingGameToggle,
@@ -118,6 +131,7 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
                     FeatureCard(
                       title: "Graphics Engine Tweak",
                       description: "MSAA, Vsync, GPU akselerasi.",
+                      iconWidget: const FaIcon(FontAwesomeIcons.cogs),
                       isActive: _activeFeatures['graphics_tweak'] ?? false,
                       isAllowed: features['graphics_tweak'] == true,
                       onChanged: (val) => setState(() => _activeFeatures['graphics_tweak'] = val),

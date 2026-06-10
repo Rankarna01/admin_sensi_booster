@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../core/constants/app_colors.dart';
 import '../../providers/client_provider.dart';
 import '../widgets/feature_card.dart';
@@ -191,6 +192,7 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
                     FeatureCard(
                       title: "Monitoring ROG",
                       description: "FPS, Suhu CPU, RAM real-time monitoring.",
+                      iconWidget: const FaIcon(FontAwesomeIcons.microchip),
                       isActive: _activeFeatures['rog_monitor'] ?? false,
                       isAllowed: features['rog_monitor'] == true,
                       onChanged: _handleRogMonitorToggle,
@@ -198,6 +200,7 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
                     FeatureCard(
                       title: "Game Lab Sensi",
                       description: "Sensitivitas layar khusus game.",
+                      iconWidget: const FaIcon(FontAwesomeIcons.crosshairs),
                       isActive: _activeFeatures['game_lab_sensi'] ?? false,
                       isAllowed: features['game_lab_sensi'] == true,
                       onChanged: (val) => setState(() => _activeFeatures['game_lab_sensi'] = val),
@@ -205,6 +208,7 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
                     FeatureCard(
                       title: "CPU & RAM Tweaks",
                       description: "CPU Governor, Core Priority, Memory Cache.",
+                      iconWidget: const FaIcon(FontAwesomeIcons.memory),
                       isActive: _activeFeatures['cpu_tweak'] ?? false,
                       isAllowed: features['cpu_tweak'] == true,
                       onChanged: (val) => setState(() => _activeFeatures['cpu_tweak'] = val),
@@ -212,6 +216,7 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
                     FeatureCard(
                       title: "Latency Mode",
                       description: "Stabilisasi ping & optimasi jaringan.",
+                      iconWidget: const FaIcon(FontAwesomeIcons.wifi),
                       isActive: _activeFeatures['latency_mode'] ?? false,
                       isAllowed: features['latency_mode'] == true,
                       onChanged: (val) => _executeLatencyMode(val),
@@ -220,6 +225,7 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
                     FeatureCard(
                       title: "Ping Overlay",
                       description: "Widget ping real-time di layar.",
+                      iconWidget: const FaIcon(FontAwesomeIcons.tachometerAlt),
                       isActive: _activeFeatures['speed_test'] ?? false,
                       isAllowed: features['speed_test'] == true,
                       onChanged: (val) => setState(() => _activeFeatures['speed_test'] = val),
@@ -227,6 +233,7 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
                     FeatureCard(
                       title: "Smart Switch DPI",
                       description: "Resolusi & DPI Android untuk grafis optimal.",
+                      iconWidget: const FaIcon(FontAwesomeIcons.mobileAlt),
                       isActive: _activeFeatures['set_dpi'] ?? false,
                       isAllowed: features['set_dpi'] == true,
                       onChanged: (val) => setState(() => _activeFeatures['set_dpi'] = val),

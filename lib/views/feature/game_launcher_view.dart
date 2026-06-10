@@ -4,6 +4,7 @@ import 'package:installed_apps/installed_apps.dart';
 import 'package:installed_apps/app_info.dart';
 import 'package:app_usage/app_usage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import '../../core/constants/app_colors.dart';
 import 'game_boost_landscape_view.dart';
@@ -53,6 +54,7 @@ class _GameLauncherViewState extends State<GameLauncherView> {
   }
 
   Future<void> _fetchUsageStats() async {
+    if (kIsWeb) return;
     try {
       DateTime endDate = DateTime.now();
       DateTime startDate = endDate.subtract(const Duration(days: 7));
@@ -160,7 +162,7 @@ class _GameLauncherViewState extends State<GameLauncherView> {
                     children: [
                       // App Icon
                       FutureBuilder<AppInfo?>(
-                        future: InstalledApps.getAppInfo(pkgName),
+                        future: kIsWeb ? Future.value(null) : InstalledApps.getAppInfo(pkgName),
                         builder: (context, snapshot) {
                           if (snapshot.hasData && snapshot.data?.icon != null) {
                             return Container(
@@ -252,6 +254,16 @@ class _AppSelectorState extends State<_AppSelector> {
   }
 
   Future<void> _loadApps() async {
+    if (kIsWeb) {
+      setState(() {
+        _apps = [
+          AppInfo.create({"name": "Example Game 1", "package_name": "com.example.game1"}),
+          AppInfo.create({"name": "Example Game 2", "package_name": "com.example.game2"}),
+        ];
+        _loading = false;
+      });
+      return;
+    }
     List<AppInfo> apps = await InstalledApps.getInstalledApps(excludeSystemApps: true, withIcon: true);
     apps.sort((a, b) => (a.name ?? "").compareTo(b.name ?? ""));
     setState(() {
