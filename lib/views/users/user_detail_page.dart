@@ -4,8 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
 import '../../providers/user_management_provider.dart';
 import '../../models/user_model.dart';
-import '../widgets/base_layout.dart'; // Grid background
+import '../widgets/base_layout.dart';
 import '../../providers/package_provider.dart';
+import '../widgets/neon_loading.dart';
 
 class UserDetailPage extends ConsumerWidget {
   final UserModel user;
@@ -14,7 +15,6 @@ class UserDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 0. Ambil list user dari stream, cari user yang uid-nya sama agar tampilannya reactive!
     final usersAsync = ref.watch(usersStreamProvider);
     final currentUser = usersAsync.value?.firstWhere(
       (u) => u.uid == user.uid,
@@ -23,32 +23,30 @@ class UserDetailPage extends ConsumerWidget {
 
     return BaseLayout(
       child: Scaffold(
-        backgroundColor: Colors.transparent, // Transparan agar BaseLayout terlihat
+        backgroundColor: Colors.transparent,
         appBar: AppBar(
-          backgroundColor: AppColors.background,
+          backgroundColor: Colors.transparent,
           elevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.neonGreen),
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.neonGreen, size: 18),
             onPressed: () => Navigator.pop(context),
           ),
-          title: Text("USER DETAILS", style: GoogleFonts.orbitron(color: AppColors.textWhite, fontSize: 16, fontWeight: FontWeight.bold)),
+          title: Text(
+            "USER DETAILS",
+            style: GoogleFonts.inter(color: AppColors.textWhite, fontSize: 15, fontWeight: FontWeight.w600),
+          ),
         ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. INFO CARD
               _buildSectionTitle("ACCOUNT INFO"),
               _buildInfoCard(currentUser),
-              const SizedBox(height: 30),
-              
-              // 2. PACKAGE CONFIGURATION
+              const SizedBox(height: 24),
               _buildSectionTitle("PACKAGE SUBSCRIPTION"),
               _buildPackageControl(context, ref, currentUser),
-              const SizedBox(height: 30),
-              
-              // 3. PAYMENT CONFIRMATION
+              const SizedBox(height: 24),
               _buildSectionTitle("FINANCE & PAYMENT"),
               _buildPaymentControl(context, ref, currentUser),
             ],
@@ -63,9 +61,12 @@ class UserDetailPage extends ConsumerWidget {
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         children: [
-          Container(width: 3, height: 14, color: AppColors.neonGreen),
+          Container(width: 2, height: 12, color: AppColors.neonGreen),
           const SizedBox(width: 8),
-          Text(title, style: GoogleFonts.orbitron(color: AppColors.textMuted, fontSize: 12, fontWeight: FontWeight.bold)),
+          Text(
+            title,
+            style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.8),
+          ),
         ],
       ),
     );
@@ -73,19 +74,32 @@ class UserDetailPage extends ConsumerWidget {
 
   Widget _buildInfoCard(UserModel user) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.neonGreen.withOpacity(0.03),
+            blurRadius: 20,
+          ),
+          ...AppColors.cardShadow(),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _infoRow("EMAIL", user.email),
-          const Divider(color: AppColors.border, height: 20),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Divider(color: AppColors.border.withOpacity(0.5)),
+          ),
           _infoRow("UID", user.uid),
-          const Divider(color: AppColors.border, height: 20),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Divider(color: AppColors.border.withOpacity(0.5)),
+          ),
           _infoRow("HARDWARE ID", user.deviceId.isEmpty ? "Not Bounded" : user.deviceId),
         ],
       ),
@@ -96,8 +110,19 @@ class UserDetailPage extends ConsumerWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: GoogleFonts.orbitron(color: AppColors.textMuted, fontSize: 9)),
-        Text(value, style: const TextStyle(color: AppColors.textWhite, fontSize: 12, fontWeight: FontWeight.bold)),
+        Text(
+          label,
+          style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 10, fontWeight: FontWeight.w500, letterSpacing: 0.5),
+        ),
+        Flexible(
+          child: Text(
+            value,
+            style: GoogleFonts.inter(color: AppColors.textWhite, fontSize: 12, fontWeight: FontWeight.w600),
+            textAlign: TextAlign.end,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
       ],
     );
   }
@@ -108,15 +133,19 @@ class UserDetailPage extends ConsumerWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.border),
+        boxShadow: AppColors.cardShadow(),
       ),
       child: pkgAsync.when(
         data: (packages) {
           if (packages.isEmpty) {
-            return const Padding(
-              padding: EdgeInsets.all(20),
-              child: Text("Belum ada data paket. Silakan tambahkan di menu Global Config.", style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+            return Padding(
+              padding: const EdgeInsets.all(18),
+              child: Text(
+                "Belum ada data paket.",
+                style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 12),
+              ),
             );
           }
           return Column(
@@ -126,7 +155,7 @@ class UserDetailPage extends ConsumerWidget {
               return Column(
                 children: [
                   _buildRadioOption(ref, pkg.name, pkg.name, user.statusVip, user.uid),
-                  if (index < packages.length - 1) const Divider(color: AppColors.border, height: 1),
+                  if (index < packages.length - 1) Divider(color: AppColors.border.withOpacity(0.5), height: 1),
                 ],
               );
             }).toList(),
@@ -134,11 +163,11 @@ class UserDetailPage extends ConsumerWidget {
         },
         loading: () => const Padding(
           padding: EdgeInsets.all(20),
-          child: Center(child: CircularProgressIndicator(color: AppColors.neonGreen)),
+          child: NeonLoading(),
         ),
         error: (e, _) => Padding(
-          padding: const EdgeInsets.all(20),
-          child: Text("Error: $e", style: const TextStyle(color: Colors.redAccent)),
+          padding: const EdgeInsets.all(18),
+          child: Text("Error: $e", style: TextStyle(color: Colors.redAccent)),
         ),
       ),
     );
@@ -147,7 +176,14 @@ class UserDetailPage extends ConsumerWidget {
   Widget _buildRadioOption(WidgetRef ref, String title, String value, String groupValue, String uid) {
     bool isSelected = value == groupValue;
     return RadioListTile<String>(
-      title: Text(title, style: TextStyle(color: isSelected ? AppColors.neonGreen : AppColors.textWhite, fontWeight: FontWeight.bold)),
+      title: Text(
+        title,
+        style: GoogleFonts.inter(
+          color: isSelected ? AppColors.neonGreen : AppColors.textWhite,
+          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+          fontSize: 13,
+        ),
+      ),
       value: value,
       groupValue: groupValue,
       activeColor: AppColors.neonGreen,
@@ -162,11 +198,14 @@ class UserDetailPage extends ConsumerWidget {
   Widget _buildPaymentControl(BuildContext context, WidgetRef ref, UserModel user) {
     bool isPaid = user.paymentStatus == 'paid';
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: isPaid ? AppColors.neonGreen.withOpacity(0.2) : AppColors.border),
+        boxShadow: isPaid
+            ? [BoxShadow(color: AppColors.neonGreen.withOpacity(0.04), blurRadius: 20)]
+            : AppColors.cardShadow(),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -174,17 +213,40 @@ class UserDetailPage extends ConsumerWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text("PAYMENT STATUS", style: GoogleFonts.orbitron(color: AppColors.textWhite, fontSize: 12, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
               Text(
-                isPaid ? "Payment Confirmed" : "Waiting for Payment",
-                style: TextStyle(color: isPaid ? AppColors.neonGreen : Colors.redAccent, fontSize: 10),
+                "PAYMENT STATUS",
+                style: GoogleFonts.inter(color: AppColors.textWhite, fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Container(
+                    width: 6, height: 6,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isPaid ? AppColors.neonGreen : Colors.redAccent,
+                      boxShadow: isPaid
+                          ? [BoxShadow(color: AppColors.neonGreen.withOpacity(0.5), blurRadius: 6)]
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    isPaid ? "Confirmed" : "Waiting",
+                    style: GoogleFonts.inter(
+                      color: isPaid ? AppColors.neonGreen : Colors.redAccent,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
           Switch(
             value: isPaid,
-            activeColor: AppColors.neonGreen,
+            activeColor: AppColors.background,
+            activeTrackColor: AppColors.neonGreen,
             inactiveThumbColor: Colors.redAccent,
             onChanged: (val) {
               ref.read(userActionProvider.notifier).updatePaymentStatus(user.uid, val ? 'paid' : 'unpaid');

@@ -6,7 +6,8 @@ import '../../providers/user_management_provider.dart';
 import '../../models/user_model.dart';
 import '../../providers/package_provider.dart';
 import '../../models/package_model.dart';
-import 'user_detail_page.dart'; // Import halaman detail
+import 'user_detail_page.dart';
+import '../widgets/neon_loading.dart';
 
 class UserManagementPage extends ConsumerWidget {
   const UserManagementPage({super.key});
@@ -35,25 +36,31 @@ class UserManagementPage extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  Container(width: 3, height: 16, color: AppColors.neonGreen),
+                  Container(width: 2, height: 14, color: AppColors.neonGreen),
                   const SizedBox(width: 8),
-                  Text("USER DATABASE", style: GoogleFonts.orbitron(color: AppColors.textWhite, fontSize: 14, fontWeight: FontWeight.bold)),
+                  Text(
+                    "USER DATABASE",
+                    style: GoogleFonts.inter(color: AppColors.textWhite, fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.5),
+                  ),
                 ],
               ),
-              // Tombol Register User Baru
               GestureDetector(
                 onTap: () => _showRegisterModal(context, ref, packages),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: AppColors.neonGreen,
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: AppColors.glowGreen(blur: 16, opacity: 0.2),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.add, color: Colors.black, size: 14),
+                      const Icon(Icons.add_rounded, color: Colors.black, size: 14),
                       const SizedBox(width: 4),
-                      Text("NEW USER", style: GoogleFonts.orbitron(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold)),
+                      Text(
+                        "NEW USER",
+                        style: GoogleFonts.inter(color: Colors.black, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.3),
+                      ),
                     ],
                   ),
                 ),
@@ -63,12 +70,21 @@ class UserManagementPage extends ConsumerWidget {
         ),
         
         if (actionState is AsyncLoading)
-          const LinearProgressIndicator(color: AppColors.neonGreen, backgroundColor: AppColors.background),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            child: LinearProgressIndicator(
+              color: AppColors.neonGreen,
+              backgroundColor: AppColors.surface,
+              minHeight: 2,
+            ),
+          ),
 
         Expanded(
           child: usersAsync.when(
             data: (users) {
-              if (users.isEmpty) return const Center(child: Text("Belum ada user", style: TextStyle(color: AppColors.textMuted)));
+              if (users.isEmpty) {
+                return const Center(child: NeonLoading(message: "Belum ada user terdaftar"));
+              }
               return ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 itemCount: users.length,
@@ -78,15 +94,14 @@ class UserManagementPage extends ConsumerWidget {
                 },
               );
             },
-            loading: () => const Center(child: CircularProgressIndicator(color: AppColors.neonGreen)),
-            error: (err, _) => Center(child: Text("Error: $err", style: const TextStyle(color: Colors.redAccent))),
+            loading: () => const NeonLoading(message: "Memuat data..."),
+            error: (err, _) => Center(child: Text("Error: $err", style: TextStyle(color: Colors.redAccent))),
           ),
         ),
       ],
     );
   }
 
-  // Desain List Item Sederhana
   Widget _buildUserListItem(BuildContext context, UserModel user) {
     Color tierColor = AppColors.textMuted;
     if (user.statusVip == 'standard') tierColor = Colors.lightBlueAccent;
@@ -94,45 +109,74 @@ class UserManagementPage extends ConsumerWidget {
 
     return GestureDetector(
       onTap: () {
-        // Navigasi ke Halaman Detail
         Navigator.push(context, MaterialPageRoute(builder: (_) => UserDetailPage(user: user)));
       },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: AppColors.card,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.border),
+          boxShadow: AppColors.cardShadow(),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(user.email, style: const TextStyle(color: AppColors.textWhite, fontWeight: FontWeight.bold, fontSize: 14)),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Text("TIER: ${user.statusVip.toUpperCase()}", style: GoogleFonts.orbitron(color: tierColor, fontSize: 9, fontWeight: FontWeight.bold)),
-                    const SizedBox(width: 10),
-                    Text(
-                      user.paymentStatus == 'paid' ? "• PAID" : "• UNPAID", 
-                      style: GoogleFonts.inter(color: user.paymentStatus == 'paid' ? AppColors.neonGreen : Colors.redAccent, fontSize: 9, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                )
-              ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    user.email,
+                    style: GoogleFonts.inter(color: AppColors.textWhite, fontWeight: FontWeight.w600, fontSize: 13),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: tierColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          user.statusVip.toUpperCase(),
+                          style: GoogleFonts.inter(color: tierColor, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.3),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        width: 4, height: 4,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: user.paymentStatus == 'paid' ? AppColors.neonGreen : Colors.redAccent,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        user.paymentStatus.toUpperCase(),
+                        style: GoogleFonts.inter(
+                          color: user.paymentStatus == 'paid' ? AppColors.neonGreen : Colors.redAccent,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  )
+                ],
+              ),
             ),
-            const Icon(Icons.chevron_right, color: AppColors.textMuted),
+            Icon(Icons.chevron_right_rounded, color: AppColors.textMuted.withOpacity(0.5), size: 20),
           ],
         ),
       ),
     );
   }
 
-  // Modal Pop-Up Registrasi
   void _showRegisterModal(BuildContext context, WidgetRef ref, List<PackageModel> packages) {
     final TextEditingController emailC = TextEditingController();
     final TextEditingController passC = TextEditingController();
@@ -140,9 +184,7 @@ class UserManagementPage extends ConsumerWidget {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.background,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
@@ -152,34 +194,46 @@ class UserManagementPage extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("REGISTER CLIENT ACCOUNT", style: GoogleFonts.orbitron(color: AppColors.neonGreen, fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 20),
+                  Text(
+                    "REGISTER CLIENT",
+                    style: GoogleFonts.inter(color: AppColors.neonGreen, fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 18),
                   TextField(
                     controller: emailC,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(labelText: "Client Email", labelStyle: TextStyle(color: AppColors.textMuted)),
+                    style: GoogleFonts.inter(color: Colors.white, fontSize: 14),
+                    decoration: InputDecoration(
+                      labelText: "Client Email",
+                      labelStyle: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 13),
+                    ),
                   ),
                   const SizedBox(height: 10),
                   TextField(
                     controller: passC,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(labelText: "Password", labelStyle: TextStyle(color: AppColors.textMuted)),
+                    style: GoogleFonts.inter(color: Colors.white, fontSize: 14),
+                    decoration: InputDecoration(
+                      labelText: "Password",
+                      labelStyle: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 13),
+                    ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   DropdownButtonFormField<PackageModel>(
                     value: selectedPackage,
                     dropdownColor: AppColors.card,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(labelText: "Package Tier", labelStyle: TextStyle(color: AppColors.textMuted)),
+                    style: GoogleFonts.inter(color: Colors.white, fontSize: 14),
+                    decoration: InputDecoration(
+                      labelText: "Package Tier",
+                      labelStyle: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 13),
+                    ),
                     items: packages.map((pkg) {
                       return DropdownMenuItem<PackageModel>(
                         value: pkg,
-                        child: Text(pkg.name.toUpperCase()),
+                        child: Text(pkg.name.toUpperCase(), style: GoogleFonts.inter(fontSize: 13)),
                       );
                     }).toList(),
                     onChanged: (val) => setModalState(() => selectedPackage = val),
                   ),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -191,15 +245,19 @@ class UserManagementPage extends ConsumerWidget {
                           selectedPackage!.durationDays,
                           selectedPackage!.price
                         );
-                        Navigator.pop(context); // Tutup modal
+                        Navigator.pop(context);
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: selectedPackage != null ? AppColors.neonGreen : AppColors.textMuted
+                        backgroundColor: selectedPackage != null ? AppColors.neonGreen : AppColors.textMuted,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
-                      child: Text("CREATE ACCOUNT", style: GoogleFonts.orbitron(color: Colors.black, fontWeight: FontWeight.bold)),
+                      child: Text(
+                        "CREATE ACCOUNT",
+                        style: GoogleFonts.inter(color: Colors.black, fontWeight: FontWeight.w700, fontSize: 13),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 28),
                 ],
               ),
             );

@@ -4,12 +4,12 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
 import '../../providers/dashboard_provider.dart';
 import '../widgets/admin_bottom_nav.dart';
-import '../users/user_management_page.dart'; // Import halaman user mgmt
-import '../finance/finance_page.dart'; // Import halaman finance
-import '../config/config_page.dart'; // Import config page
-
+import '../users/user_management_page.dart';
+import '../finance/finance_page.dart';
+import '../config/config_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../login/login_page.dart';
+import '../widgets/base_layout.dart';
 
 class AdminDashboardPage extends ConsumerStatefulWidget {
   const AdminDashboardPage({super.key});
@@ -23,14 +23,13 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Dengar kalkulasi data dinamis dari provider
     final stats = ref.watch(dashboardStatsProvider);
 
     final List<Widget> adminMenus = [
-      _buildHomeView(stats),           // Index 0: Dashboard Home
-      const UserManagementPage(),       // Index 1: Manajemen User (Dinamis)
-      const FinancePage(),              // Index 2: Keuangan (Sudah Terhubung)
-      const ConfigPage(),               // Index 3: Config Fitur
+      _buildHomeView(stats),
+      const UserManagementPage(),
+      const FinancePage(),
+      const ConfigPage(),
     ];
 
     return Scaffold(
@@ -39,14 +38,33 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
         children: [
           Positioned.fill(child: CustomPaint(painter: GridPainter())),
           
+          // Ambient glow top-right
+          Positioned(
+            top: -80, right: -60,
+            child: Container(
+              width: 220, height: 220,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [AppColors.neonGreen.withOpacity(0.05), Colors.transparent],
+                ),
+              ),
+            ),
+          ),
+          
           SafeArea(
             child: Column(
               children: [
                 _buildHeader(),
                 Expanded(
-                  child: IndexedStack(
-                    index: _currentIndex,
-                    children: adminMenus,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    switchInCurve: Curves.easeOutCubic,
+                    child: IndexedStack(
+                      key: ValueKey<int>(_currentIndex),
+                      index: _currentIndex,
+                      children: adminMenus,
+                    ),
                   ),
                 ),
               ],
@@ -67,7 +85,6 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
     );
   }
 
-  // --- VIEW KONTEN UTAMA HOME ---
   Widget _buildHomeView(DashboardStats stats) {
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -75,11 +92,11 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           _buildMainAnalyticCard(stats.conversionRate),
-          const SizedBox(height: 15),
+          const SizedBox(height: 12),
           _buildStatsGrid(stats),
-          const SizedBox(height: 25),
+          const SizedBox(height: 22),
           _buildActionCenter(),
           const SizedBox(height: 100),
         ],
@@ -89,7 +106,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -99,17 +116,20 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
               color: AppColors.card,
               shape: BoxShape.circle,
               border: Border.all(color: AppColors.border),
+              boxShadow: AppColors.cardShadow(),
             ),
-            child: const Icon(Icons.admin_panel_settings, color: AppColors.textWhite, size: 20),
+            child: const Icon(Icons.admin_panel_settings_rounded, color: AppColors.textMuted, size: 18),
           ),
           Text(
-            "MFW ADMIN PANEL",
+            "MFW ADMIN",
             style: GoogleFonts.orbitron(
               color: AppColors.neonGreen,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
               fontStyle: FontStyle.italic,
-              shadows: [Shadow(color: AppColors.neonGreen.withOpacity(0.5), blurRadius: 10)],
+              shadows: [
+                Shadow(color: AppColors.neonGreen.withOpacity(0.3), blurRadius: 12),
+              ],
             ),
           ),
           Container(
@@ -118,8 +138,9 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
               color: AppColors.card,
               shape: BoxShape.circle,
               border: Border.all(color: AppColors.border),
+              boxShadow: AppColors.cardShadow(),
             ),
-            child: const Icon(Icons.notifications_active, color: AppColors.textWhite, size: 20),
+            child: const Icon(Icons.notifications_none_rounded, color: AppColors.textMuted, size: 18),
           ),
         ],
       ),
@@ -127,29 +148,43 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
   }
 
   Widget _buildMainAnalyticCard(double rate) {
-    // Normalisasi nilai double untuk lingkaran progress (0.0 sampai 1.0)
     double progressValue = (rate / 100).clamp(0.0, 1.0);
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 30),
+      padding: const EdgeInsets.symmetric(vertical: 28),
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.neonGreen.withOpacity(0.04),
+            blurRadius: 30,
+            spreadRadius: 0,
+          ),
+          ...AppColors.cardShadow(),
+        ],
       ),
       child: Center(
         child: Stack(
           alignment: Alignment.center,
           children: [
             SizedBox(
-              width: 160, height: 160,
-              child: CircularProgressIndicator(
-                value: progressValue,
-                strokeWidth: 8,
-                color: AppColors.neonGreen,
-                backgroundColor: AppColors.border,
-                strokeCap: StrokeCap.round,
+              width: 140, height: 140,
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: progressValue),
+                duration: const Duration(milliseconds: 1200),
+                curve: Curves.easeOutCubic,
+                builder: (context, value, child) {
+                  return CircularProgressIndicator(
+                    value: value,
+                    strokeWidth: 6,
+                    color: AppColors.neonGreen,
+                    backgroundColor: AppColors.border.withOpacity(0.3),
+                    strokeCap: StrokeCap.round,
+                  );
+                },
               ),
             ),
             Column(
@@ -159,11 +194,25 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(rate.toStringAsFixed(0), style: GoogleFonts.orbitron(color: AppColors.neonGreen, fontSize: 42, fontWeight: FontWeight.bold)),
-                    Text("%", style: GoogleFonts.orbitron(color: AppColors.neonGreen, fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text(
+                      rate.toStringAsFixed(0),
+                      style: GoogleFonts.orbitron(
+                        color: AppColors.neonGreen,
+                        fontSize: 38,
+                        fontWeight: FontWeight.w700,
+                        shadows: [Shadow(color: AppColors.neonGreen.withOpacity(0.3), blurRadius: 10)],
+                      ),
+                    ),
+                    Text(
+                      "%",
+                      style: GoogleFonts.orbitron(color: AppColors.neonGreen, fontSize: 14, fontWeight: FontWeight.w600),
+                    ),
                   ],
                 ),
-                Text("VIP CONVERSION", style: GoogleFonts.orbitron(color: AppColors.textMuted, fontSize: 9, letterSpacing: 1.5)),
+                Text(
+                  "VIP CONVERSION",
+                  style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 9, letterSpacing: 1.5, fontWeight: FontWeight.w500),
+                ),
               ],
             )
           ],
@@ -178,21 +227,22 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
         Expanded(
           child: Column(
             children: [
-              _buildMiniStatCard(Icons.group, "TOTAL USERS", "${stats.totalUsers}", "Acct", Colors.lightBlueAccent),
-              const SizedBox(height: 15),
-              _buildMiniStatCard(Icons.workspace_premium, "ACTIVE VIP", "${stats.activeVip}", "Acct", AppColors.neonGreen),
+              _buildMiniStatCard(Icons.people_outline_rounded, "TOTAL USERS", "${stats.totalUsers}", Colors.lightBlueAccent),
+              const SizedBox(height: 12),
+              _buildMiniStatCard(Icons.workspace_premium_rounded, "ACTIVE VIP", "${stats.activeVip}", AppColors.neonGreen),
             ],
           ),
         ),
-        const SizedBox(width: 15),
+        const SizedBox(width: 12),
         Expanded(
           child: Container(
-            height: 215, 
-            padding: const EdgeInsets.all(20),
+            height: 200,
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
               color: AppColors.card,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.border),
+              boxShadow: AppColors.cardShadow(),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -201,15 +251,28 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Icon(Icons.attach_money, color: AppColors.textMuted, size: 20),
-                    Text("REVENUE", style: GoogleFonts.orbitron(color: AppColors.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+                    const Icon(Icons.attach_money_rounded, color: AppColors.textMuted, size: 18),
+                    Text(
+                      "REVENUE",
+                      style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 1),
+                    ),
                   ],
                 ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("Rp ${(stats.totalRevenue / 1000000).toStringAsFixed(1)}M", style: GoogleFonts.orbitron(color: AppColors.textWhite, fontSize: 32, fontWeight: FontWeight.bold)),
-                    Text("ESTIMATED VALUE", style: GoogleFonts.orbitron(color: AppColors.neonGreen, fontSize: 10, fontWeight: FontWeight.bold)),
+                    Text(
+                      "Rp ${(stats.totalRevenue / 1000000).toStringAsFixed(1)}M",
+                      style: GoogleFonts.orbitron(
+                        color: AppColors.textWhite,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      "ESTIMATED VALUE",
+                      style: GoogleFonts.inter(color: AppColors.neonGreen, fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 0.5),
+                    ),
                   ],
                 )
               ],
@@ -220,14 +283,15 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
     );
   }
 
-  Widget _buildMiniStatCard(IconData icon, String title, String value, String unit, Color color) {
+  Widget _buildMiniStatCard(IconData icon, String title, String value, Color color) {
     return Container(
-      height: 100,
-      padding: const EdgeInsets.all(15),
+      height: 94,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
+        boxShadow: AppColors.cardShadow(),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -236,21 +300,17 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(icon, color: color, size: 18),
-              Text(title, style: GoogleFonts.orbitron(color: AppColors.textMuted, fontSize: 9, fontWeight: FontWeight.bold)),
+              Icon(icon, color: color, size: 16),
+              Text(
+                title,
+                style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 8, fontWeight: FontWeight.w600, letterSpacing: 0.5),
+              ),
             ],
           ),
           const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(value, style: GoogleFonts.orbitron(color: AppColors.textWhite, fontSize: 22, fontWeight: FontWeight.bold)),
-              const SizedBox(width: 4),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 3),
-                child: Text(unit, style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
-              ),
-            ],
+          Text(
+            value,
+            style: GoogleFonts.orbitron(color: AppColors.textWhite, fontSize: 22, fontWeight: FontWeight.w700),
           ),
         ],
       ),
@@ -266,9 +326,12 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
           children: [
             Row(
               children: [
-                Container(width: 3, height: 16, color: AppColors.neonGreen),
+                Container(width: 2, height: 14, color: AppColors.neonGreen),
                 const SizedBox(width: 8),
-                Text("ACTION CENTER", style: GoogleFonts.orbitron(color: AppColors.textWhite, fontSize: 14, fontWeight: FontWeight.bold)),
+                Text(
+                  "ACTION CENTER",
+                  style: GoogleFonts.inter(color: AppColors.textWhite, fontSize: 13, fontWeight: FontWeight.w600),
+                ),
               ],
             ),
             GestureDetector(
@@ -285,28 +348,31 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: Colors.redAccent.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: Colors.redAccent),
+                  color: Colors.redAccent.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.redAccent.withOpacity(0.4)),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.logout, color: Colors.redAccent, size: 14),
+                    const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 13),
                     const SizedBox(width: 4),
-                    Text("LOGOUT", style: GoogleFonts.orbitron(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                    Text(
+                      "LOGOUT",
+                      style: GoogleFonts.inter(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.w600),
+                    ),
                   ],
                 ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _buildActionIcon(Icons.person_add, "ADD USER", Colors.blueAccent),
-            _buildActionIcon(Icons.qr_code, "GEN REFERRAL", Colors.orangeAccent),
-            _buildActionIcon(Icons.settings_applications, "GLOBAL CONFIG", Colors.purpleAccent),
+            _buildActionIcon(Icons.person_add_alt_rounded, "ADD USER", Colors.blueAccent),
+            _buildActionIcon(Icons.qr_code_2_rounded, "REFERRAL", Colors.orangeAccent),
+            _buildActionIcon(Icons.settings_outlined, "CONFIG", Colors.purpleAccent),
           ],
         ),
       ],
@@ -317,30 +383,20 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
     return Column(
       children: [
         Container(
-          width: 65, height: 65,
-          decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(16)),
-          child: Icon(icon, color: Colors.white, size: 30),
+          width: 56, height: 56,
+          decoration: BoxDecoration(
+            color: bgColor.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: bgColor.withOpacity(0.3)),
+          ),
+          child: Icon(icon, color: bgColor, size: 24),
         ),
-        const SizedBox(height: 8),
-        Text(name, style: GoogleFonts.orbitron(color: AppColors.textMuted, fontSize: 9, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 6),
+        Text(
+          name,
+          style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 9, fontWeight: FontWeight.w500, letterSpacing: 0.3),
+        ),
       ],
     );
   }
-}
-
-class GridPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withOpacity(0.04)
-      ..strokeWidth = 1.5;
-    const double spacing = 25.0;
-    for (double i = 0; i < size.width; i += spacing) {
-      for (double j = 0; j < size.height; j += spacing) {
-        canvas.drawCircle(Offset(i, j), 1.5, paint);
-      }
-    }
-  }
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

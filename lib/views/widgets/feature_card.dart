@@ -22,13 +22,33 @@ class FeatureCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+    final bool isOn = isAllowed && isActive;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isAllowed ? AppColors.border : Colors.redAccent.withOpacity(0.3), width: 1),
+        color: isOn ? AppColors.cardElevated : AppColors.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isOn
+              ? AppColors.neonGreen.withOpacity(0.3)
+              : isAllowed
+                  ? AppColors.border
+                  : Colors.redAccent.withOpacity(0.2),
+          width: 1,
+        ),
+        boxShadow: isOn
+            ? [
+                BoxShadow(
+                  color: AppColors.neonGreen.withOpacity(0.06),
+                  blurRadius: 20,
+                  spreadRadius: 0,
+                ),
+              ]
+            : AppColors.cardShadow(),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -43,58 +63,92 @@ class FeatureCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
+                        // Status indicator dot
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isOn
+                                ? AppColors.neonGreen
+                                : isAllowed
+                                    ? AppColors.textMuted
+                                    : Colors.redAccent.withOpacity(0.6),
+                            boxShadow: isOn
+                                ? [
+                                    BoxShadow(
+                                      color: AppColors.neonGreen.withOpacity(0.5),
+                                      blurRadius: 6,
+                                      spreadRadius: 1,
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
                         Flexible(
                           child: Text(
                             title,
-                            style: TextStyle(
-                              color: isAllowed ? AppColors.textWhite : AppColors.textMuted, 
-                              fontSize: 14, 
-                              fontWeight: FontWeight.bold
+                            style: GoogleFonts.inter(
+                              color: isAllowed ? AppColors.textWhite : AppColors.textMuted,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              height: 1.3,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         if (!isAllowed) ...[
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 6),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                            decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(4)),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.lock, size: 8, color: Colors.white),
-                                const SizedBox(width: 2),
-                                Text("LOCKED", style: GoogleFonts.orbitron(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
-                              ],
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.redAccent.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: Colors.redAccent.withOpacity(0.3), width: 0.5),
                             ),
-                          )
+                            child: Text(
+                              "LOCKED",
+                              style: GoogleFonts.inter(
+                                color: Colors.redAccent,
+                                fontSize: 8,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
                         ]
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      description,
-                      style: TextStyle(color: isAllowed ? AppColors.textMuted : AppColors.textMuted.withOpacity(0.5), fontSize: 11, height: 1.4),
+                    const SizedBox(height: 6),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 14),
+                      child: Text(
+                        description,
+                        style: GoogleFonts.inter(
+                          color: isAllowed ? AppColors.textMuted : AppColors.textMuted.withOpacity(0.5),
+                          fontSize: 11,
+                          height: 1.5,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 10),
-              // Switch Neon Green
+              // Switch
               Switch(
                 value: isAllowed ? isActive : false,
                 onChanged: isAllowed ? onChanged : null,
-                activeColor: AppColors.background,
-                activeTrackColor: AppColors.neonGreen,
-                inactiveThumbColor: AppColors.textMuted,
-                inactiveTrackColor: AppColors.background,
-              )
+              ),
             ],
           ),
           if (isActive && extraContent != null) ...[
-            const SizedBox(height: 16),
-            const Divider(color: AppColors.border),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
+            Divider(color: AppColors.border.withOpacity(0.5)),
+            const SizedBox(height: 14),
             extraContent!,
           ]
         ],

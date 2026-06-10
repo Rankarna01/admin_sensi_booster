@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
 import '../../providers/client_provider.dart';
 import '../widgets/feature_card.dart';
+import '../widgets/neon_loading.dart';
 
 class FeatureView extends ConsumerStatefulWidget {
   const FeatureView({super.key});
@@ -16,14 +17,12 @@ class FeatureView extends ConsumerStatefulWidget {
 class _FeatureViewState extends ConsumerState<FeatureView> {
   final Map<String, bool> _activeFeatures = {};
 
-  // State untuk Performance Monitor (Floating)
   bool _showRam = true;
   bool _showBattery = true;
   bool _showSuhu = true;
   bool _showClock = true;
-  bool _showFps = true; // NEW
+  bool _showFps = true;
 
-  // Method Channel ke Native Kotlin Overlay
   static const MethodChannel _overlayChannel = MethodChannel('com.mfw.sensi_booster/overlay');
 
   Future<void> _handleFloatingGameToggle(bool isActive) async {
@@ -34,7 +33,7 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
       if (!hasPerm) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Meminta Izin Tampil di Atas Aplikasi Lain..."), backgroundColor: Colors.orange)
+            const SnackBar(content: Text("Memerlukan izin overlay..."), backgroundColor: Colors.orange)
           );
         }
         await _overlayChannel.invokeMethod('requestPermission');
@@ -52,7 +51,10 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Floating Game Tools Melayang Aktif!", style: GoogleFonts.orbitron()), backgroundColor: AppColors.neonGreen)
+          SnackBar(
+            content: Text("Floating Tools Aktif", style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
+            backgroundColor: AppColors.neonGreenDark,
+          ),
         );
       }
     } else {
@@ -67,7 +69,7 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SingleChildScrollView(
-        padding: const EdgeInsets.only(left: 20, right: 20, top: 40, bottom: 100),
+        padding: const EdgeInsets.only(left: 20, right: 20, top: 36, bottom: 100),
         physics: const BouncingScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -75,31 +77,30 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  child: Text(
-                    "ADVANCED TWEAKS",
-                    style: GoogleFonts.orbitron(
-                      color: AppColors.neonGreen,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                Text(
+                  "ADVANCED TWEAKS",
+                  style: GoogleFonts.inter(
+                    color: AppColors.neonGreen,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
                   ),
                 ),
-                const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.neonGreen.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.neonGreen),
+                    color: AppColors.neonGreen.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppColors.neonGreen.withOpacity(0.3)),
                   ),
-                  child: Text("VIP ACTIVE", style: GoogleFonts.orbitron(color: AppColors.neonGreen, fontSize: 10, fontWeight: FontWeight.bold)),
+                  child: Text(
+                    "VIP",
+                    style: GoogleFonts.inter(color: AppColors.neonGreen, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.5),
+                  ),
                 )
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
 
             pkgAsync.when(
               data: (pkg) {
@@ -108,7 +109,7 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
                   children: [
                     FeatureCard(
                       title: "Floating Game Tools",
-                      description: "Akses informasi performa secara langsung melayang di layar.",
+                      description: "Info performa melayang di layar.",
                       isActive: _activeFeatures['floating_game'] ?? false,
                       isAllowed: features['floating_game'] == true,
                       onChanged: _handleFloatingGameToggle,
@@ -116,7 +117,7 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
                     ),
                     FeatureCard(
                       title: "Graphics Engine Tweak",
-                      description: "Memaksa Anti-Aliasing (MSAA), Vsync, dan akselerasi GPU pada rendering game.",
+                      description: "MSAA, Vsync, GPU akselerasi.",
                       isActive: _activeFeatures['graphics_tweak'] ?? false,
                       isAllowed: features['graphics_tweak'] == true,
                       onChanged: (val) => setState(() => _activeFeatures['graphics_tweak'] = val),
@@ -124,8 +125,8 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
                   ],
                 );
               },
-              loading: () => const Center(child: CircularProgressIndicator(color: AppColors.neonGreen)),
-              error: (e, _) => Center(child: Text("Error: $e", style: const TextStyle(color: Colors.redAccent))),
+              loading: () => const NeonLoading(message: "Memuat fitur..."),
+              error: (e, _) => Center(child: Text("Error: $e", style: TextStyle(color: Colors.redAccent))),
             ),
           ],
         ),
@@ -133,38 +134,37 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
     );
   }
 
-  // --- PERFORMANCE MONITOR SETTINGS ---
   Widget _buildPerformanceMonitorSettings() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Select Monitor", style: GoogleFonts.orbitron(color: AppColors.textMuted, fontSize: 12, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 12),
+        Text("Monitor", style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 10),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              _buildMonitorChip("Monitor FPS", Icons.speed, _showFps, (v) {
+              _buildMonitorChip("FPS", Icons.speed_rounded, _showFps, (v) {
                 setState(() => _showFps = v);
                 if (_activeFeatures['floating_game'] == true) _handleFloatingGameToggle(true);
               }),
-              const SizedBox(width: 10),
-              _buildMonitorChip("Monitor RAM", Icons.memory, _showRam, (v) {
+              const SizedBox(width: 8),
+              _buildMonitorChip("RAM", Icons.memory_rounded, _showRam, (v) {
                 setState(() => _showRam = v);
                 if (_activeFeatures['floating_game'] == true) _handleFloatingGameToggle(true);
               }),
-              const SizedBox(width: 10),
-              _buildMonitorChip("Monitor Battery", Icons.battery_charging_full, _showBattery, (v) {
+              const SizedBox(width: 8),
+              _buildMonitorChip("Battery", Icons.battery_charging_full_rounded, _showBattery, (v) {
                 setState(() => _showBattery = v);
                 if (_activeFeatures['floating_game'] == true) _handleFloatingGameToggle(true);
               }),
-              const SizedBox(width: 10),
-              _buildMonitorChip("Monitor Suhu", Icons.thermostat, _showSuhu, (v) {
+              const SizedBox(width: 8),
+              _buildMonitorChip("Suhu", Icons.thermostat_rounded, _showSuhu, (v) {
                 setState(() => _showSuhu = v);
                 if (_activeFeatures['floating_game'] == true) _handleFloatingGameToggle(true);
               }),
-              const SizedBox(width: 10),
-              _buildMonitorChip("Monitor Jam", Icons.access_time, _showClock, (v) {
+              const SizedBox(width: 8),
+              _buildMonitorChip("Jam", Icons.access_time_rounded, _showClock, (v) {
                 setState(() => _showClock = v);
                 if (_activeFeatures['floating_game'] == true) _handleFloatingGameToggle(true);
               }),
@@ -179,19 +179,24 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
     return GestureDetector(
       onTap: () => onSelected(!isSelected),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.neonGreen.withOpacity(0.2) : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSelected ? AppColors.neonGreen : AppColors.border),
+          color: isSelected ? AppColors.neonGreen.withOpacity(0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: isSelected ? AppColors.neonGreen.withOpacity(0.5) : AppColors.border),
+          boxShadow: isSelected ? AppColors.glowGreen(blur: 8, opacity: 0.06) : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 14, color: isSelected ? AppColors.neonGreen : AppColors.textWhite),
-            const SizedBox(width: 6),
-            Text(label, style: GoogleFonts.orbitron(fontSize: 10, color: isSelected ? AppColors.neonGreen : AppColors.textWhite)),
+            Icon(icon, size: 13, color: isSelected ? AppColors.neonGreen : AppColors.textMuted),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: GoogleFonts.inter(fontSize: 10, color: isSelected ? AppColors.neonGreen : AppColors.textWhite, fontWeight: FontWeight.w500),
+            ),
           ],
         ),
       ),

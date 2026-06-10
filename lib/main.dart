@@ -24,7 +24,6 @@ void main() async {
 
   if (loginDateStr != null && FirebaseAuth.instance.currentUser != null) {
     DateTime loginDate = DateTime.parse(loginDateStr);
-    // Cek apakah session masih berlaku (kurang dari 30 hari)
     if (DateTime.now().difference(loginDate).inDays <= 30) {
       if (userRole == 'admin') {
         initialScreen = const AdminDashboardPage();
@@ -32,7 +31,6 @@ void main() async {
         initialScreen = const ClientMainLayout();
       }
     } else {
-      // Session expired
       await FirebaseAuth.instance.signOut();
       await prefs.remove('login_date');
       await prefs.remove('user_role');

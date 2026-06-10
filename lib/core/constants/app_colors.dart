@@ -2,13 +2,56 @@ import 'package:flutter/material.dart';
 
 class AppColors {
   // Warna MFW Design System
-  static const Color background = Color(0xFF0F1011); // Hitam pekat agak abu (Base)
-  static const Color card = Color(0xFF161719); // Warna kotak form login
-  static const Color neonGreen = Color(0xFF4ADE80); // Hijau stabilo khas MFW
-  static const Color neonGreenDark = Color(0xFF22C55E); // Hijau saat tombol ditekan
+  static const Color background = Color(0xFF0A0B0D); // Hitam lebih dalam
+  static const Color surface = Color(0xFF111215); // Surface layer di atas background
+  static const Color card = Color(0xFF151619); // Warna kartu (sedikit lebih terang)
+  static const Color cardElevated = Color(0xFF1A1B1F); // Kartu yang di-hover/aktif
+  
+  // Neon Green Palette
+  static const Color neonGreen = Color(0xFF4ADE80); // Hijau utama
+  static const Color neonGreenDark = Color(0xFF22C55E); // Hijau lebih gelap (pressed state)
+  static const Color neonGreenSoft = Color(0xFF166534); // Hijau sangat redup (background glow)
   
   // Teks & Garis
-  static const Color textWhite = Color(0xFFF3F4F6); // Putih terang
-  static const Color textMuted = Color(0xFF6B7280); // Abu-abu redup (Placeholder)
-  static const Color border = Color(0xFF27272A); // Garis outline input form
+  static const Color textWhite = Color(0xFFF1F5F9); // Putih lembut (tidak terlalu menyilaukan)
+  static const Color textSecondary = Color(0xFF94A3B8); // Abu-abu terang (subteks)
+  static const Color textMuted = Color(0xFF64748B); // Abu-abu redup (placeholder)
+  static const Color border = Color(0xFF1E293B); // Garis tipis (lebih subtle)
+  static const Color borderLight = Color(0xFF334155); // Garis lebih terang (active state)
+
+  // Glow Utility
+  static List<BoxShadow> glowGreen({double blur = 20, double spread = 0, double opacity = 0.15}) {
+    return [
+      BoxShadow(
+        color: neonGreen.withOpacity(opacity),
+        blurRadius: blur,
+        spreadRadius: spread,
+      ),
+    ];
+  }
+
+  static List<BoxShadow> glowGreenSoft() {
+    return [
+      BoxShadow(
+        color: neonGreen.withOpacity(0.08),
+        blurRadius: 30,
+        spreadRadius: 0,
+      ),
+      BoxShadow(
+        color: neonGreen.withOpacity(0.04),
+        blurRadius: 60,
+        spreadRadius: 0,
+      ),
+    ];
+  }
+
+  static List<BoxShadow> cardShadow() {
+    return [
+      BoxShadow(
+        color: Colors.black.withOpacity(0.3),
+        blurRadius: 12,
+        offset: const Offset(0, 4),
+      ),
+    ];
+  }
 }

@@ -4,7 +4,7 @@ import '../../services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../seeder/admin_seeder.dart';
 import '../../core/constants/app_colors.dart';
-import '../widgets/base_layout.dart'; // Import background grid
+import '../widgets/base_layout.dart';
 import '../dashboard/admin_dashboard_page.dart';
 import '../layouts/client_main_layout.dart';
 
@@ -21,7 +21,7 @@ class _LoginPageState extends State<LoginPage> {
   final AuthService _authService = AuthService();
   
   bool _isLoading = false;
-  bool _rememberDevice = true; // State untuk toggle switch
+  bool _rememberDevice = true;
 
   void _handleLogin() async {
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
@@ -54,12 +54,10 @@ class _LoginPageState extends State<LoginPage> {
             backgroundColor: AppColors.neonGreenDark
           ),
         );
-        // Simpan sesi login selama 30 hari
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('login_date', DateTime.now().toIso8601String());
         await prefs.setString('user_role', result);
         
-        // Cek role untuk navigasi
         if (result == "admin") {
           Navigator.pushReplacement(
             context,
@@ -77,19 +75,30 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Kita gunakan BaseLayout agar background titik-titik (grid) otomatis muncul
     return BaseLayout(
       child: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Container(
             width: double.infinity,
-            constraints: const BoxConstraints(maxWidth: 400), // Membatasi lebar form
-            padding: const EdgeInsets.all(30),
+            constraints: const BoxConstraints(maxWidth: 400),
+            padding: const EdgeInsets.all(28),
             decoration: BoxDecoration(
-              color: AppColors.card, // Warna latar abu-abu gelap solid
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.border, width: 1.5),
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppColors.border, width: 1),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.neonGreen.withOpacity(0.04),
+                  blurRadius: 40,
+                  spreadRadius: 0,
+                ),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -103,45 +112,49 @@ class _LoginPageState extends State<LoginPage> {
                         "MFW",
                         style: GoogleFonts.orbitron(
                           color: AppColors.neonGreen,
-                          fontSize: 38,
-                          fontWeight: FontWeight.bold,
-                          fontStyle: FontStyle.italic, // Sesuai gambar
+                          fontSize: 36,
+                          fontWeight: FontWeight.w700,
+                          fontStyle: FontStyle.italic,
                           shadows: [
                             Shadow(
-                              color: AppColors.neonGreen.withOpacity(0.5),
-                              blurRadius: 15,
-                            )
+                              color: AppColors.neonGreen.withOpacity(0.4),
+                              blurRadius: 20,
+                            ),
+                            Shadow(
+                              color: AppColors.neonGreen.withOpacity(0.15),
+                              blurRadius: 40,
+                            ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 5),
+                      const SizedBox(height: 6),
                       Text(
                         "SYSTEM AUTHENTICATION",
-                        style: GoogleFonts.orbitron(
+                        style: GoogleFonts.inter(
                           color: AppColors.textMuted,
                           fontSize: 10,
-                          letterSpacing: 2,
-                          fontWeight: FontWeight.bold,
+                          letterSpacing: 2.5,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 36),
 
                 // --- INPUT EMAIL ---
                 Text(
                   "USERNAME / EMAIL",
-                  style: GoogleFonts.orbitron(
+                  style: GoogleFonts.inter(
                     color: AppColors.textMuted,
                     fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                     letterSpacing: 1,
                   ),
                 ),
                 const SizedBox(height: 8),
-                _buildTextField("Enter credentials", Icons.person, _emailController),
-                const SizedBox(height: 20),
+                _buildTextField("Enter credentials", Icons.person_outline_rounded, _emailController),
+                const SizedBox(height: 18),
 
                 // --- INPUT PASSWORD ---
                 Row(
@@ -149,26 +162,26 @@ class _LoginPageState extends State<LoginPage> {
                   children: [
                     Text(
                       "PASSWORD",
-                      style: GoogleFonts.orbitron(
+                      style: GoogleFonts.inter(
                         color: AppColors.textMuted,
                         fontSize: 10,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w600,
                         letterSpacing: 1,
                       ),
                     ),
                     Text(
                       "FORGOT?",
-                      style: GoogleFonts.orbitron(
+                      style: GoogleFonts.inter(
                         color: AppColors.neonGreen,
                         fontSize: 10,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                _buildTextField("••••••••", Icons.lock, _passwordController, isObscure: true),
-                const SizedBox(height: 15),
+                _buildTextField("••••••••", Icons.lock_outline_rounded, _passwordController, isObscure: true),
+                const SizedBox(height: 14),
 
                 // --- REMEMBER DEVICE TOGGLE ---
                 Row(
@@ -176,15 +189,11 @@ class _LoginPageState extends State<LoginPage> {
                     Switch(
                       value: _rememberDevice,
                       onChanged: (val) => setState(() => _rememberDevice = val),
-                      activeColor: AppColors.background,
-                      activeTrackColor: AppColors.textMuted,
-                      inactiveThumbColor: AppColors.textMuted,
-                      inactiveTrackColor: AppColors.background,
                     ),
                     const SizedBox(width: 8),
-                    const Text(
+                    Text(
                       "Remember device",
-                      style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                      style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 12, fontWeight: FontWeight.w400),
                     )
                   ],
                 ),
@@ -195,12 +204,13 @@ class _LoginPageState extends State<LoginPage> {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _handleLogin,
-                    // Style sudah diatur global di AppTheme, tapi kita tegaskan warnanya
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.neonGreen,
-                      foregroundColor: AppColors.background, // Teks hitam
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      foregroundColor: AppColors.background,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shadowColor: AppColors.neonGreen.withOpacity(0.4),
+                      elevation: 8,
                     ),
                     child: _isLoading
                         ? const SizedBox(
@@ -212,56 +222,58 @@ class _LoginPageState extends State<LoginPage> {
                             children: [
                               Text(
                                 "LOGIN",
-                                style: GoogleFonts.orbitron(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 2),
+                                style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 1),
                               ),
-                              const SizedBox(width: 10),
-                              const Icon(Icons.login, size: 18),
+                              const SizedBox(width: 8),
+                              const Icon(Icons.arrow_forward_rounded, size: 16),
                             ],
                           ),
                   ),
                 ),
-                const SizedBox(height: 25),
+                const SizedBox(height: 22),
 
                 // --- QUICK LOGIN DIVIDER ---
                 Row(
                   children: [
                     Expanded(child: Divider(color: AppColors.border, thickness: 1)),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: Text(
                         "OR QUICK LOGIN",
-                        style: GoogleFonts.orbitron(color: AppColors.textMuted, fontSize: 9, letterSpacing: 1),
+                        style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 9, letterSpacing: 1, fontWeight: FontWeight.w500),
                       ),
                     ),
                     Expanded(child: Divider(color: AppColors.border, thickness: 1)),
                   ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 18),
 
                 // --- QUICK LOGIN ICONS ---
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildQuickLoginBtn(Icons.gamepad),
-                    _buildQuickLoginBtn(Icons.chat_bubble_outline),
+                    _buildQuickLoginBtn(Icons.gamepad_outlined),
+                    _buildQuickLoginBtn(Icons.chat_bubble_outline_rounded),
                     _buildQuickLoginBtn(Icons.language),
                   ],
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 26),
 
                 // --- FOOTER REGISTER ---
                 Center(
                   child: RichText(
                     text: TextSpan(
                       text: "NEW USER? ",
-                      style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                      style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w400),
                       children: [
                         TextSpan(
                           text: "REGISTER HARDWARE",
-                          style: TextStyle(
-                            color: AppColors.neonGreenDark,
-                            fontWeight: FontWeight.bold,
+                          style: GoogleFonts.inter(
+                            color: AppColors.neonGreen,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
                             decoration: TextDecoration.underline,
+                            decorationColor: AppColors.neonGreen.withOpacity(0.5),
                           ),
                         ),
                       ],
@@ -269,9 +281,9 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
 
-                const SizedBox(height: 30),
+                const SizedBox(height: 24),
                 
-                // --- SEEDER SEMENTARA (Sesuai Permintaan) ---
+                // --- SEEDER ---
                 Center(
                   child: GestureDetector(
                     onTap: () async {
@@ -288,9 +300,9 @@ class _LoginPageState extends State<LoginPage> {
                         );
                       }
                     },
-                    child: const Text(
+                    child: Text(
                       "Run Admin Seeder (Debug)", 
-                      style: TextStyle(color: Colors.redAccent, fontSize: 10),
+                      style: GoogleFonts.inter(color: Colors.redAccent.withOpacity(0.7), fontSize: 10, fontWeight: FontWeight.w400),
                     ),
                   ),
                 ),
@@ -302,32 +314,30 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // Komponen Input Form
   Widget _buildTextField(String hint, IconData icon, TextEditingController controller, {bool isObscure = false}) {
     return TextFormField(
       controller: controller,
       obscureText: isObscure,
-      style: const TextStyle(color: AppColors.textWhite),
+      style: GoogleFonts.inter(color: AppColors.textWhite, fontSize: 14),
       decoration: InputDecoration(
-        prefixIcon: Icon(icon, color: AppColors.textMuted, size: 20),
+        prefixIcon: Icon(icon, color: AppColors.textMuted, size: 18),
         hintText: hint,
-        // Style border & fill color sudah di-handle oleh AppTheme (Global)
+        hintStyle: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 14),
       ),
     );
   }
 
-  // Komponen Tombol Kotak Quick Login
   Widget _buildQuickLoginBtn(IconData icon) {
     return Expanded(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 5),
-        height: 45,
+        height: 44,
         decoration: BoxDecoration(
-          color: AppColors.background, // Lebih gelap dari card
-          borderRadius: BorderRadius.circular(6),
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: AppColors.border),
         ),
-        child: Icon(icon, color: AppColors.textMuted, size: 20),
+        child: Icon(icon, color: AppColors.textMuted, size: 18),
       ),
     );
   }

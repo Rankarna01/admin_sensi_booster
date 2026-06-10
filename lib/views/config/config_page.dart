@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
 import '../../providers/package_provider.dart';
 import '../../models/package_model.dart';
+import '../widgets/neon_loading.dart';
 
 class ConfigPage extends ConsumerWidget {
   const ConfigPage({super.key});
@@ -13,7 +14,6 @@ class ConfigPage extends ConsumerWidget {
     final packageAsync = ref.watch(packageStreamProvider);
     final actionState = ref.watch(packageActionProvider);
 
-    // Listener untuk notifikasi sukses/gagal
     ref.listen(packageActionProvider, (previous, next) {
       next.whenOrNull(
         error: (err, _) => ScaffoldMessenger.of(context).showSnackBar(
@@ -39,26 +39,31 @@ class ConfigPage extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  Container(width: 3, height: 16, color: AppColors.neonGreen),
+                  Container(width: 2, height: 14, color: AppColors.neonGreen),
                   const SizedBox(width: 8),
-                  Text("MASTER DATA PAKET", style: GoogleFonts.orbitron(color: AppColors.textWhite, fontSize: 14, fontWeight: FontWeight.bold)),
+                  Text(
+                    "MASTER DATA PAKET",
+                    style: GoogleFonts.inter(color: AppColors.textWhite, fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.5),
+                  ),
                 ],
               ),
-              // Tombol Tambah Paket Baru
               GestureDetector(
                 onTap: () => _showPackageForm(context, ref),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: AppColors.card,
-                    border: Border.all(color: AppColors.border),
-                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: AppColors.neonGreen.withOpacity(0.4)),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.add, color: AppColors.neonGreen, size: 14),
+                      const Icon(Icons.add_rounded, color: AppColors.neonGreen, size: 14),
                       const SizedBox(width: 4),
-                      Text("ADD", style: GoogleFonts.orbitron(color: AppColors.neonGreen, fontSize: 10, fontWeight: FontWeight.bold)),
+                      Text(
+                        "ADD",
+                        style: GoogleFonts.inter(color: AppColors.neonGreen, fontSize: 10, fontWeight: FontWeight.w700),
+                      ),
                     ],
                   ),
                 ),
@@ -68,19 +73,16 @@ class ConfigPage extends ConsumerWidget {
         ),
         
         if (actionState is AsyncLoading)
-          const LinearProgressIndicator(color: AppColors.neonGreen, backgroundColor: AppColors.background),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            child: LinearProgressIndicator(color: AppColors.neonGreen, backgroundColor: AppColors.surface, minHeight: 2),
+          ),
 
         Expanded(
           child: packageAsync.when(
             data: (packages) {
               if (packages.isEmpty) {
-                return Center(
-                  child: Text(
-                    "Belum ada data paket.\nKlik tombol ADD untuk menambahkan.", 
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: AppColors.textMuted),
-                  ),
-                );
+                return const Center(child: NeonLoading(message: "Belum ada data paket"));
               }
               return ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -91,23 +93,26 @@ class ConfigPage extends ConsumerWidget {
                 },
               );
             },
-            loading: () => const Center(child: CircularProgressIndicator(color: AppColors.neonGreen)),
-            error: (err, _) => Center(child: Text("Error: $err", style: const TextStyle(color: Colors.redAccent))),
+            loading: () => const NeonLoading(message: "Memuat paket..."),
+            error: (err, _) => Center(child: Text("Error: $err", style: TextStyle(color: Colors.redAccent))),
           ),
         ),
       ],
     );
   }
 
-  // --- WIDGET KARTU PAKET ---
   Widget _buildPackageCard(BuildContext context, WidgetRef ref, PackageModel pkg) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(color: AppColors.neonGreen.withOpacity(0.03), blurRadius: 16),
+          ...AppColors.cardShadow(),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -117,16 +122,22 @@ class ConfigPage extends ConsumerWidget {
             children: [
               Text(
                 pkg.name.toUpperCase(),
-                style: GoogleFonts.orbitron(color: AppColors.neonGreen, fontSize: 16, fontWeight: FontWeight.bold),
+                style: GoogleFonts.inter(color: AppColors.neonGreen, fontSize: 14, fontWeight: FontWeight.w700),
               ),
-              // Tombol Edit Paket
               GestureDetector(
                 onTap: () => _showPackageForm(context, ref, existingPkg: pkg),
-                child: const Icon(Icons.edit, color: AppColors.textMuted, size: 18),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Icon(Icons.edit_rounded, color: AppColors.textMuted, size: 14),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 15),
+          const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -135,15 +146,18 @@ class ConfigPage extends ConsumerWidget {
               _buildConfigDetail("REF. BONUS", "+${pkg.referralRewardDays} Days"),
             ],
           ),
-          const SizedBox(height: 15),
-          const Divider(color: AppColors.border, height: 1),
-          const SizedBox(height: 10),
-          Text("FEATURES INCLUDED:", style: GoogleFonts.orbitron(color: AppColors.textMuted, fontSize: 8, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          Divider(color: AppColors.border.withOpacity(0.5)),
           const SizedBox(height: 8),
+          Text(
+            "FEATURES",
+            style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 0.5),
+          ),
+          const SizedBox(height: 6),
           Wrap(
-            spacing: 8, runSpacing: 8,
+            spacing: 6, runSpacing: 6,
             children: pkg.features.entries
-                .where((entry) => entry.value) // Hanya tampilkan yang True
+                .where((entry) => entry.value)
                 .map((entry) => _buildFeatureBadge(entry.key))
                 .toList(),
           ),
@@ -156,9 +170,9 @@ class ConfigPage extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.orbitron(color: AppColors.textMuted, fontSize: 8, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        Text(value, style: const TextStyle(color: AppColors.textWhite, fontSize: 12, fontWeight: FontWeight.bold)),
+        Text(label, style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 8, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+        const SizedBox(height: 3),
+        Text(value, style: GoogleFonts.inter(color: AppColors.textWhite, fontSize: 12, fontWeight: FontWeight.w600)),
       ],
     );
   }
@@ -168,23 +182,23 @@ class ConfigPage extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
-        color: AppColors.background,
+        color: AppColors.neonGreen.withOpacity(0.06),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppColors.neonGreen.withOpacity(0.3)),
+        border: Border.all(color: AppColors.neonGreen.withOpacity(0.2)),
       ),
-      child: Text(label, style: GoogleFonts.orbitron(color: AppColors.neonGreen, fontSize: 8)),
+      child: Text(
+        label,
+        style: GoogleFonts.inter(color: AppColors.neonGreen, fontSize: 8, fontWeight: FontWeight.w600),
+      ),
     );
   }
 
-  // --- MODAL FORMULIR PAKET ---
   void _showPackageForm(BuildContext context, WidgetRef ref, {PackageModel? existingPkg}) {
-    // Controller Text
     final nameC = TextEditingController(text: existingPkg?.name ?? '');
     final priceC = TextEditingController(text: existingPkg?.price.toStringAsFixed(0) ?? '0');
     final durationC = TextEditingController(text: existingPkg?.durationDays.toString() ?? '30');
     final refBonusC = TextEditingController(text: existingPkg?.referralRewardDays.toString() ?? '1');
 
-    // Local State untuk 9 Fitur
     Map<String, bool> featureState = {
       'speed_test': existingPkg?.features['speed_test'] ?? false,
       'latency_mode': existingPkg?.features['latency_mode'] ?? false,
@@ -199,17 +213,15 @@ class ConfigPage extends ConsumerWidget {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.background,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
             return FractionallySizedBox(
-              heightFactor: 0.9, // Memakan 90% layar agar muat banyak scroll
+              heightFactor: 0.9,
               child: Padding(
                 padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(context).viewInsets.bottom, 
+                  bottom: MediaQuery.of(context).viewInsets.bottom,
                   left: 20, right: 20, top: 20
                 ),
                 child: Column(
@@ -219,98 +231,71 @@ class ConfigPage extends ConsumerWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          existingPkg == null ? "CREATE PACKAGE" : "EDIT PACKAGE", 
-                          style: GoogleFonts.orbitron(color: AppColors.neonGreen, fontSize: 16, fontWeight: FontWeight.bold)
+                          existingPkg == null ? "CREATE PACKAGE" : "EDIT PACKAGE",
+                          style: GoogleFonts.inter(color: AppColors.neonGreen, fontSize: 15, fontWeight: FontWeight.w700),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.close, color: AppColors.textMuted),
+                          icon: const Icon(Icons.close_rounded, color: AppColors.textMuted, size: 20),
                           onPressed: () => Navigator.pop(context),
                         )
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     Expanded(
                       child: SingleChildScrollView(
                         physics: const BouncingScrollPhysics(),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // --- BAGIAN INPUT TEXT ---
-                            TextField(
-                              controller: nameC,
-                              style: const TextStyle(color: Colors.white),
-                              decoration: const InputDecoration(labelText: "Package Name (e.g. VIP Booster)", labelStyle: TextStyle(color: AppColors.textMuted)),
-                            ),
+                            _buildInputField("Package Name", nameC),
                             const SizedBox(height: 10),
-                            TextField(
-                              controller: priceC,
-                              keyboardType: TextInputType.number,
-                              style: const TextStyle(color: Colors.white),
-                              decoration: const InputDecoration(labelText: "Price (Rp)", labelStyle: TextStyle(color: AppColors.textMuted)),
-                            ),
+                            _buildInputField("Price (Rp)", priceC, isNumber: true),
                             const SizedBox(height: 10),
                             Row(
                               children: [
-                                Expanded(
-                                  child: TextField(
-                                    controller: durationC,
-                                    keyboardType: TextInputType.number,
-                                    style: const TextStyle(color: Colors.white),
-                                    decoration: const InputDecoration(labelText: "Active Duration (Days)", labelStyle: TextStyle(color: AppColors.textMuted)),
-                                  ),
-                                ),
+                                Expanded(child: _buildInputField("Duration (Days)", durationC, isNumber: true)),
                                 const SizedBox(width: 10),
-                                Expanded(
-                                  child: TextField(
-                                    controller: refBonusC,
-                                    keyboardType: TextInputType.number,
-                                    style: const TextStyle(color: Colors.white),
-                                    decoration: const InputDecoration(labelText: "Referral Bonus (Days)", labelStyle: TextStyle(color: AppColors.textMuted)),
-                                  ),
-                                ),
+                                Expanded(child: _buildInputField("Referral Bonus (Days)", refBonusC, isNumber: true)),
                               ],
                             ),
-                            const SizedBox(height: 30),
-
-                            // --- BAGIAN SAKLAR 9 FITUR ---
-                            Text("FEATURE ACCESS CONTROL", style: GoogleFonts.orbitron(color: AppColors.textWhite, fontSize: 12, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 24),
+                            Text(
+                              "FEATURE ACCESS",
+                              style: GoogleFonts.inter(color: AppColors.textWhite, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.5),
+                            ),
+                            const SizedBox(height: 6),
                             ...featureState.keys.map((key) {
                               return SwitchListTile(
                                 contentPadding: EdgeInsets.zero,
-                                activeColor: AppColors.neonGreen,
-                                inactiveTrackColor: AppColors.card,
                                 title: Text(
-                                  key.replaceAll('_', ' ').toUpperCase(), 
-                                  style: GoogleFonts.orbitron(color: featureState[key]! ? AppColors.neonGreen : AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.bold)
+                                  key.replaceAll('_', ' ').toUpperCase(),
+                                  style: GoogleFonts.inter(
+                                    color: featureState[key]! ? AppColors.neonGreen : AppColors.textMuted,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                                 value: featureState[key]!,
                                 onChanged: (val) {
-                                  setModalState(() {
-                                    featureState[key] = val;
-                                  });
+                                  setModalState(() { featureState[key] = val; });
                                 },
                               );
                             }).toList(),
-                            const SizedBox(height: 20),
+                            const SizedBox(height: 16),
                           ],
                         ),
                       ),
                     ),
-                    
-                    // --- TOMBOL SAVE ---
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () {
-                          // Validasi angka
                           final price = double.tryParse(priceC.text) ?? 0;
                           final duration = int.tryParse(durationC.text) ?? 0;
                           final refBonus = int.tryParse(refBonusC.text) ?? 0;
 
-                          // Bentuk model
                           PackageModel newPkg = PackageModel(
-                            id: existingPkg?.id ?? '', // Jika baru, id kosong
+                            id: existingPkg?.id ?? '',
                             name: nameC.text,
                             price: price,
                             durationDays: duration,
@@ -318,12 +303,17 @@ class ConfigPage extends ConsumerWidget {
                             features: featureState,
                           );
 
-                          // Panggil provider untuk save
                           ref.read(packageActionProvider.notifier).savePackage(newPkg);
                           Navigator.pop(context);
                         },
-                        style: ElevatedButton.styleFrom(backgroundColor: AppColors.neonGreen),
-                        child: Text("SAVE CONFIGURATION", style: GoogleFonts.orbitron(color: Colors.black, fontWeight: FontWeight.bold)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.neonGreen,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: Text(
+                          "SAVE CONFIGURATION",
+                          style: GoogleFonts.inter(color: Colors.black, fontWeight: FontWeight.w700, fontSize: 13),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -334,6 +324,18 @@ class ConfigPage extends ConsumerWidget {
           }
         );
       },
+    );
+  }
+
+  Widget _buildInputField(String label, TextEditingController controller, {bool isNumber = false}) {
+    return TextField(
+      controller: controller,
+      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+      style: GoogleFonts.inter(color: Colors.white, fontSize: 14),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 12),
+      ),
     );
   }
 }

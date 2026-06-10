@@ -18,58 +18,69 @@ class AdminBottomNav extends StatelessWidget {
       alignment: Alignment.bottomCenter,
       clipBehavior: Clip.none,
       children: [
-        // Base Bottom Nav (Background Hitam)
+        // Base Bottom Nav
         Container(
-          height: 70,
-          decoration: const BoxDecoration(
-            color: AppColors.background,
-            border: Border(top: BorderSide(color: AppColors.border)),
+          height: 68,
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            border: Border(top: BorderSide(color: AppColors.border.withOpacity(0.5))),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.4),
+                blurRadius: 16,
+                offset: const Offset(0, -2),
+              ),
+            ],
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(Icons.speed, "Dashboard", 0),
-              _buildNavItem(Icons.group, "Users", 1),
-              const SizedBox(width: 50), // Spasi kosong untuk tombol tengah
-              _buildNavItem(Icons.account_balance_wallet, "Finance", 2),
-              _buildNavItem(Icons.settings_suggest, "Config", 3),
+              _buildNavItem(Icons.grid_view_rounded, "Dashboard", 0),
+              _buildNavItem(Icons.people_outline_rounded, "Users", 1),
+              const SizedBox(width: 50),
+              _buildNavItem(Icons.account_balance_wallet_outlined, "Finance", 2),
+              _buildNavItem(Icons.tune_rounded, "Config", 3),
             ],
           ),
         ),
         
-        // Floating Action Button (Pengganti AX-MODE)
+        // Floating Action Button (Quick Action)
         Positioned(
-          top: -25, // Mengangkat tombol agar overlap
+          top: -22,
           child: GestureDetector(
-            onTap: () {
-              // Aksi untuk tombol Quick Action (Misal memunculkan modal)
-            },
+            onTap: () {},
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 10),
               decoration: BoxDecoration(
                 color: AppColors.neonGreen,
-                borderRadius: BorderRadius.circular(30),
+                borderRadius: BorderRadius.circular(28),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.neonGreen.withOpacity(0.4), 
-                    blurRadius: 20, 
-                    spreadRadius: 2
-                  )
+                    color: AppColors.neonGreen.withOpacity(0.3),
+                    blurRadius: 20,
+                    spreadRadius: 0,
+                  ),
+                  BoxShadow(
+                    color: AppColors.neonGreen.withOpacity(0.15),
+                    blurRadius: 40,
+                    spreadRadius: 0,
+                  ),
                 ],
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.bolt, color: Colors.black, size: 22),
-                  const SizedBox(width: 8),
+                  const Icon(Icons.bolt_rounded, color: Colors.black, size: 18),
+                  const SizedBox(width: 6),
                   Text(
                     "QUICK\nACTION",
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.orbitron(
-                      color: Colors.black, 
-                      fontSize: 10, 
-                      fontWeight: FontWeight.bold, 
-                      height: 1.2
+                    style: GoogleFonts.inter(
+                      color: Colors.black,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      height: 1.3,
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ],
@@ -86,24 +97,37 @@ class AdminBottomNav extends StatelessWidget {
     return GestureDetector(
       onTap: () => onTap(index),
       behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon, 
-            color: isActive ? AppColors.neonGreen : AppColors.textMuted, 
-            size: 22
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: GoogleFonts.inter(
-              color: isActive ? AppColors.neonGreen : AppColors.textMuted, 
-              fontSize: 10, 
-              fontWeight: isActive ? FontWeight.bold : FontWeight.normal
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: isActive ? AppColors.neonGreen.withOpacity(0.1) : Colors.transparent,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              padding: const EdgeInsets.all(6),
+              child: Icon(
+                icon,
+                color: isActive ? AppColors.neonGreen : AppColors.textMuted,
+                size: 20,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                color: isActive ? AppColors.neonGreen : AppColors.textMuted,
+                fontSize: 10,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -12,6 +12,7 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     private val VPN_CHANNEL = "com.mfw.sensi_booster/vpn"
     private val OVERLAY_CHANNEL = "com.mfw.sensi_booster/overlay"
+    private val CROSSHAIR_CHANNEL = "com.mfw.sensi_booster/crosshair"
     private val VPN_REQUEST_CODE = 0x0F
     private val OVERLAY_REQUEST_CODE = 0x10
     private var pendingMode = "Normal"
@@ -83,6 +84,55 @@ class MainActivity : FlutterActivity() {
                 "stopOverlay" -> {
                     stopService(Intent(this, FloatingIconService::class.java))
                     result.success(true)
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        // Crosshair Channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CROSSHAIR_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "startCrosshair" -> {
+                    if (Settings.canDrawOverlays(this)) {
+                        val intent = Intent(this, CrosshairOverlayService::class.java)
+                        intent.putExtra("shape", call.argument<String>("shape") ?: "cross_dot")
+                        intent.putExtra("color", call.argument<String>("color") ?: "#FF0000")
+                        intent.putExtra("size", call.argument<Int>("size") ?: 40)
+                        intent.putExtra("opacity", call.argument<Int>("opacity") ?: 255)
+                        intent.putExtra("offsetX", call.argument<Int>("offsetX") ?: 0)
+                        intent.putExtra("offsetY", call.argument<Int>("offsetY") ?: 0)
+                        startService(intent)
+                        result.success(true)
+                    } else {
+                        result.success(false)
+                    }
+                }
+                "updateCrosshair" -> {
+                    val intent = Intent(this, CrosshairOverlayService::class.java)
+                    intent.putExtra("shape", call.argument<String>("shape") ?: "cross_dot")
+                    intent.putExtra("color", call.argument<String>("color") ?: "#FF0000")
+                    intent.putExtra("size", call.argument<Int>("size") ?: 40)
+                    intent.putExtra("opacity", call.argument<Int>("opacity") ?: 255)
+                    intent.putExtra("offsetX", call.argument<Int>("offsetX") ?: 0)
+                    intent.putExtra("offsetY", call.argument<Int>("offsetY") ?: 0)
+                    startService(intent)
+                    result.success(true)
+                }
+                "stopCrosshair" -> {
+                    stopService(Intent(this, CrosshairOverlayService::class.java))
+                    result.success(true)
+                }
+                "checkPermission" -> {
+                    result.success(Settings.canDrawOverlays(this))
+                }
+                "requestPermission" -> {
+                    if (!Settings.canDrawOverlays(this)) {
+                        val permIntent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:\$packageName"))
+                        startActivityForResult(permIntent, OVERLAY_REQUEST_CODE)
+                        result.success(false)
+                    } else {
+                        result.success(true)
+                    }
                 }
                 else -> result.notImplemented()
             }

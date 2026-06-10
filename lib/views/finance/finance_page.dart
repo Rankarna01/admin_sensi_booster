@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
 import '../../providers/finance_provider.dart';
 import '../../models/transaction_model.dart';
+import '../widgets/neon_loading.dart';
 
 class FinancePage extends ConsumerWidget {
   const FinancePage({super.key});
@@ -17,51 +18,55 @@ class FinancePage extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // --- RINGKASAN TOTAL PEMASUKAN ---
+        // --- TOTAL REVENUE ---
         txAsync.when(
           data: (transactions) {
-            // Hitung total hanya dari transaksi yang berstatus 'paid'
             final totalIncome = transactions
                 .where((tx) => tx.status == 'paid')
                 .fold<double>(0, (sum, tx) => sum + tx.amount);
 
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              // Memanfaatkan widget buatan kita sebelumnya untuk total revenue
               child: _buildTotalRevenueCard(totalIncome),
             );
           },
-          loading: () => const SizedBox(height: 100, child: Center(child: CircularProgressIndicator(color: AppColors.neonGreen))),
+          loading: () => const SizedBox(height: 100, child: NeonLoading()),
           error: (_, __) => const SizedBox(),
         ),
 
-        // --- MFW CYBERPUNK GRAPH MOCKUP ---
+        // --- CHART MOCKUP ---
         const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          child: _buildFinanceChartMockup(),
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          child: _FinanceChartMockup(),
         ),
 
-        // --- SECTION HEADER LIST ---
+        // --- SECTION HEADER ---
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           child: Row(
             children: [
-              Container(width: 3, height: 16, color: AppColors.neonGreen),
+              Container(width: 2, height: 14, color: AppColors.neonGreen),
               const SizedBox(width: 8),
-              Text("TRANSACTION LOGS", style: GoogleFonts.orbitron(color: AppColors.textWhite, fontSize: 13, fontWeight: FontWeight.bold)),
+              Text(
+                "TRANSACTION LOGS",
+                style: GoogleFonts.inter(color: AppColors.textWhite, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.5),
+              ),
             ],
           ),
         ),
 
         if (actionState is AsyncLoading)
-          const LinearProgressIndicator(color: AppColors.neonGreen, backgroundColor: AppColors.background),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            child: LinearProgressIndicator(color: AppColors.neonGreen, backgroundColor: AppColors.surface, minHeight: 2),
+          ),
 
         // --- LIST TRANSAKSI ---
         Expanded(
           child: txAsync.when(
             data: (transactions) {
               if (transactions.isEmpty) {
-                return const Center(child: Text("Belum ada log transaksi masuk", style: TextStyle(color: AppColors.textMuted)));
+                return const Center(child: NeonLoading(message: "Belum ada transaksi"));
               }
               return ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -72,24 +77,27 @@ class FinancePage extends ConsumerWidget {
                 },
               );
             },
-            loading: () => const Center(child: CircularProgressIndicator(color: AppColors.neonGreen)),
-            error: (err, _) => Center(child: Text("Error: $err", style: const TextStyle(color: Colors.redAccent))),
+            loading: () => const NeonLoading(message: "Memuat transaksi..."),
+            error: (err, _) => Center(child: Text("Error: $err", style: TextStyle(color: Colors.redAccent))),
           ),
         ),
       ],
     );
   }
 
-  // Widget Kartu Total Pendapatan
   Widget _buildTotalRevenueCard(double total) {
     final formatter = NumberFormat.currency(locale: 'id', symbol: 'Rp ', decimalDigits: 0);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(color: AppColors.neonGreen.withOpacity(0.04), blurRadius: 24),
+          ...AppColors.cardShadow(),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -97,75 +105,130 @@ class FinancePage extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("TOTAL CASH INFLOW", style: GoogleFonts.orbitron(color: AppColors.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
-              const Icon(Icons.account_balance_wallet, color: AppColors.neonGreen, size: 18),
+              Text(
+                "TOTAL CASH INFLOW",
+                style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 1),
+              ),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.neonGreen.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.account_balance_wallet_rounded, color: AppColors.neonGreen, size: 16),
+              ),
             ],
           ),
           const SizedBox(height: 10),
-          Text(formatter.format(total), style: GoogleFonts.orbitron(color: AppColors.textWhite, fontSize: 28, fontWeight: FontWeight.bold)),
+          Text(
+            formatter.format(total),
+            style: GoogleFonts.orbitron(
+              color: AppColors.textWhite,
+              fontSize: 26,
+              fontWeight: FontWeight.w700,
+              shadows: [Shadow(color: AppColors.neonGreen.withOpacity(0.2), blurRadius: 8)],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  // Widget Tampilan Log Transaksi per Baris
   Widget _buildTransactionCard(BuildContext context, WidgetRef ref, TransactionModel tx) {
     bool isPaid = tx.status == 'paid';
     final formatter = NumberFormat.currency(locale: 'id', symbol: 'Rp ', decimalDigits: 0);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: isPaid ? AppColors.neonGreen.withOpacity(0.15) : AppColors.border),
+        boxShadow: AppColors.cardShadow(),
       ),
       child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(tx.userEmail, style: const TextStyle(color: AppColors.textWhite, fontWeight: FontWeight.bold, fontSize: 13)),
-                  const SizedBox(height: 4),
-                  Text(
-                    "${tx.packageName.toUpperCase()} PACKAGE", 
-                    style: GoogleFonts.orbitron(color: isPaid ? AppColors.neonGreen : Colors.amberAccent, fontSize: 9, fontWeight: FontWeight.bold)
-                  ),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tx.userEmail,
+                      style: GoogleFonts.inter(color: AppColors.textWhite, fontWeight: FontWeight.w600, fontSize: 12),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      "${tx.packageName.toUpperCase()} PACKAGE",
+                      style: GoogleFonts.inter(
+                        color: isPaid ? AppColors.neonGreen : Colors.amberAccent,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ],
+                ),
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(formatter.format(tx.amount), style: GoogleFonts.orbitron(color: AppColors.textWhite, fontSize: 14, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  Text(DateFormat('dd MMM yyyy, HH:mm').format(tx.createdAt), style: const TextStyle(color: AppColors.textMuted, fontSize: 9)),
+                  Text(
+                    formatter.format(tx.amount),
+                    style: GoogleFonts.orbitron(color: AppColors.textWhite, fontSize: 13, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    DateFormat('dd MMM yyyy').format(tx.createdAt),
+                    style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 9, fontWeight: FontWeight.w400),
+                  ),
                 ],
               )
             ],
           ),
           if (!isPaid) ...[
-            const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Divider(color: AppColors.border, height: 1)),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Divider(color: AppColors.border.withOpacity(0.5)),
+            ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.warning_amber_rounded, color: Colors.amberAccent, size: 12),
-                    const SizedBox(width: 4),
-                    Text("WAITING CONFIRMATION", style: GoogleFonts.orbitron(color: Colors.amberAccent, fontSize: 8, fontWeight: FontWeight.bold)),
+                    Container(
+                      width: 5, height: 5,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.amberAccent,
+                        boxShadow: [BoxShadow(color: Colors.amberAccent.withOpacity(0.5), blurRadius: 4)],
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      "WAITING",
+                      style: GoogleFonts.inter(color: Colors.amberAccent, fontSize: 9, fontWeight: FontWeight.w600),
+                    ),
                   ],
                 ),
-                // Tombol Konfirmasi Pembayaran Sukses
                 GestureDetector(
                   onTap: () => ref.read(financeActionProvider.notifier).confirmTransaction(tx),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(color: AppColors.neonGreen, borderRadius: BorderRadius.circular(4)),
-                    child: Text("CONFIRM PAID", style: GoogleFonts.orbitron(color: AppColors.background, fontSize: 9, fontWeight: FontWeight.bold)),
+                    decoration: BoxDecoration(
+                      color: AppColors.neonGreen,
+                      borderRadius: BorderRadius.circular(6),
+                      boxShadow: AppColors.glowGreen(blur: 12, opacity: 0.15),
+                    ),
+                    child: Text(
+                      "CONFIRM",
+                      style: GoogleFonts.inter(color: Colors.black, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.3),
+                    ),
                   ),
                 )
               ],
@@ -177,9 +240,8 @@ class FinancePage extends ConsumerWidget {
   }
 }
 
-// --- SUB WIDGET: GRAPH MOCKUP (Murni UI Container) ---
-class _buildFinanceChartMockup extends StatelessWidget {
-  const _buildFinanceChartMockup();
+class _FinanceChartMockup extends StatelessWidget {
+  const _FinanceChartMockup();
 
   @override
   Widget build(BuildContext context) {
@@ -189,23 +251,27 @@ class _buildFinanceChartMockup extends StatelessWidget {
         color: AppColors.card,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.border),
+        boxShadow: AppColors.cardShadow(),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("WEEKLY PERFORMANCE OVERVIEW", style: GoogleFonts.orbitron(color: AppColors.textMuted, fontSize: 8, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 20),
+          Text(
+            "WEEKLY OVERVIEW",
+            style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 0.5),
+          ),
+          const SizedBox(height: 18),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              _bar(40, "Mon"),
-              _bar(70, "Tue"),
-              _bar(55, "Wed"),
-              _bar(110, "Thu", isHighest: true), // Puncak omset neon menyala
-              _bar(85, "Fri"),
-              _bar(45, "Sat"),
-              _bar(30, "Sun"),
+              _bar(35, "Mon"),
+              _bar(65, "Tue"),
+              _bar(50, "Wed"),
+              _bar(100, "Thu", isHighest: true),
+              _bar(75, "Fri"),
+              _bar(40, "Sat"),
+              _bar(28, "Sun"),
             ],
           )
         ],
@@ -216,17 +282,23 @@ class _buildFinanceChartMockup extends StatelessWidget {
   Widget _bar(double height, String day, {bool isHighest = false}) {
     return Column(
       children: [
-        Container(
-          width: 14,
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 500),
+          width: 12,
           height: height,
           decoration: BoxDecoration(
-            color: isHighest ? AppColors.neonGreen : AppColors.border,
-            borderRadius: BorderRadius.circular(3),
-            boxShadow: isHighest ? [BoxShadow(color: AppColors.neonGreen.withOpacity(0.3), blurRadius: 8)] : null,
+            color: isHighest ? AppColors.neonGreen : AppColors.border.withOpacity(0.6),
+            borderRadius: BorderRadius.circular(4),
+            boxShadow: isHighest
+                ? [BoxShadow(color: AppColors.neonGreen.withOpacity(0.3), blurRadius: 10)]
+                : null,
           ),
         ),
-        const SizedBox(height: 8),
-        Text(day, style: GoogleFonts.orbitron(color: AppColors.textMuted, fontSize: 8)),
+        const SizedBox(height: 6),
+        Text(
+          day,
+          style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 9, fontWeight: FontWeight.w400),
+        ),
       ],
     );
   }
