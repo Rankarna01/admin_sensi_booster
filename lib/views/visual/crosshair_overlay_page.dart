@@ -90,7 +90,7 @@ class _CrosshairOverlayPageState extends State<CrosshairOverlayPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Crosshair Active! Double-tap to toggle.", style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
+            content: Text("Crosshair Active! Zero game lag.", style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
             backgroundColor: AppColors.neonGreenDark,
           ),
         );
@@ -247,7 +247,7 @@ class _CrosshairOverlayPageState extends State<CrosshairOverlayPage> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      "Double-tap the crosshair while playing to toggle it on/off without leaving the game.",
+                      "Crosshair floats above your game with zero input lag. Toggle off from this page or the notification stop button.",
                       style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 11, height: 1.5),
                     ),
                   ),
