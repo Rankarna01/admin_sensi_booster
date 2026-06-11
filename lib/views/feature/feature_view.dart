@@ -18,6 +18,7 @@ class FeatureView extends ConsumerStatefulWidget {
 
 class _FeatureViewState extends ConsumerState<FeatureView> {
   final Map<String, bool> _activeFeatures = {};
+  bool _isLoading = false;
 
   bool _showRam = true;
   bool _showBattery = true;
@@ -28,7 +29,12 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
   static const MethodChannel _overlayChannel = MethodChannel('com.mfw.sensi_booster/overlay');
 
   Future<void> _handleFloatingGameToggle(bool isActive) async {
-    setState(() => _activeFeatures['floating_game'] = isActive);
+    setState(() => _isLoading = true);
+    await Future.delayed(const Duration(milliseconds: 1500));
+    setState(() {
+      _isLoading = false;
+      _activeFeatures['floating_game'] = isActive;
+    });
     
     if (isActive) {
       if (kIsWeb) {
@@ -74,13 +80,24 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
     }
   }
 
+  Future<void> _handleGenericToggle(String key, bool isActive) async {
+    setState(() => _isLoading = true);
+    await Future.delayed(const Duration(milliseconds: 1200));
+    setState(() {
+      _isLoading = false;
+      _activeFeatures[key] = isActive;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final pkgAsync = ref.watch(currentPackageProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: SingleChildScrollView(
+    return PageLoadingOverlay(
+      isLoading: _isLoading,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SingleChildScrollView(
         padding: const EdgeInsets.only(left: 20, right: 20, top: 36, bottom: 100),
         physics: const BouncingScrollPhysics(),
         child: Column(
@@ -134,7 +151,7 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
                       iconWidget: const FaIcon(FontAwesomeIcons.cogs),
                       isActive: _activeFeatures['graphics_tweak'] ?? false,
                       isAllowed: features['graphics_tweak'] == true,
-                      onChanged: (val) => setState(() => _activeFeatures['graphics_tweak'] = val),
+                      onChanged: (val) => _handleGenericToggle('graphics_tweak', val),
                     ),
                   ],
                 );
@@ -145,6 +162,7 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
           ],
         ),
       ),
+    ),
     );
   }
 

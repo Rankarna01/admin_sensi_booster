@@ -19,10 +19,16 @@ class VisualView extends ConsumerStatefulWidget {
 
 class _VisualViewState extends ConsumerState<VisualView> {
   final Map<String, bool> _activeFeatures = {};
+  bool _isLoading = false;
   static const MethodChannel _channel = MethodChannel('com.mfw.sensi_booster/crosshair');
 
   Future<void> _handleCrosshairToggle(bool isActive) async {
-    setState(() => _activeFeatures['crosshair'] = isActive);
+    setState(() => _isLoading = true);
+    await Future.delayed(const Duration(milliseconds: 1500));
+    setState(() {
+      _isLoading = false;
+      _activeFeatures['crosshair'] = isActive;
+    });
 
     if (isActive) {
       if (kIsWeb) {
@@ -76,9 +82,11 @@ class _VisualViewState extends ConsumerState<VisualView> {
   Widget build(BuildContext context) {
     final pkgAsync = ref.watch(currentPackageProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: SingleChildScrollView(
+    return PageLoadingOverlay(
+      isLoading: _isLoading,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SingleChildScrollView(
         padding: const EdgeInsets.only(left: 20, right: 20, top: 36, bottom: 100),
         physics: const BouncingScrollPhysics(),
         child: Column(
@@ -135,6 +143,7 @@ class _VisualViewState extends ConsumerState<VisualView> {
           ],
         ),
       ),
+    ),
     );
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 import '../../core/constants/app_colors.dart';
 
 /// Simple, elegant loading spinner with subtle neon green glow.
@@ -22,31 +23,12 @@ class NeonLoading extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(
-            width: size,
-            height: size,
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0.0, end: 1.0),
-              duration: const Duration(milliseconds: 1500),
-              builder: (context, value, child) {
-                return Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.neonGreen.withOpacity(0.1 + (value * 0.15)),
-                        blurRadius: 12 + (value * 8),
-                        spreadRadius: 0,
-                      ),
-                    ],
-                  ),
-                  child: CircularProgressIndicator(
-                    value: null,
-                    strokeWidth: strokeWidth,
-                    color: AppColors.neonGreen.withOpacity(0.6 + (value * 0.4)),
-                    strokeCap: StrokeCap.round,
-                  ),
-                );
-              },
+            width: size * 2.5, // Lebarkan ukuran untuk animasi lottie
+            height: size * 2.5,
+            child: Lottie.asset(
+              'assets/lottie/loading.json',
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) => CircularProgressIndicator(color: AppColors.neonGreen),
             ),
           ),
           if (message != null) ...[

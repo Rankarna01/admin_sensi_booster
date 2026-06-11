@@ -7,6 +7,7 @@ import '../../core/constants/app_colors.dart';
 import '../widgets/base_layout.dart';
 import '../dashboard/admin_dashboard_page.dart';
 import '../layouts/client_main_layout.dart';
+import '../widgets/neon_loading.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -75,10 +76,12 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    return BaseLayout(
-      child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+    return PageLoadingOverlay(
+      isLoading: _isLoading,
+      child: BaseLayout(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Container(
             width: double.infinity,
             constraints: const BoxConstraints(maxWidth: 400),
@@ -212,12 +215,7 @@ class _LoginPageState extends State<LoginPage> {
                       shadowColor: AppColors.neonGreen.withOpacity(0.4),
                       elevation: 8,
                     ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 20, width: 20,
-                            child: CircularProgressIndicator(color: AppColors.background, strokeWidth: 2),
-                          )
-                        : Row(
+                    child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
@@ -311,6 +309,7 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ),
       ),
+    ),
     );
   }
 

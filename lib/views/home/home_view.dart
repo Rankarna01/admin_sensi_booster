@@ -19,6 +19,7 @@ class HomeView extends ConsumerStatefulWidget {
 
 class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderStateMixin {
   final Map<String, bool> _activeFeatures = {};
+  bool _isLoading = false;
 
   String _latencyMode = "Normal";
   bool _pingOverlay = false;
@@ -69,7 +70,12 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
   }
 
   Future<void> _handleRogMonitorToggle(bool isActive) async {
-    setState(() => _activeFeatures['rog_monitor'] = isActive);
+    setState(() => _isLoading = true);
+    await Future.delayed(const Duration(milliseconds: 1500));
+    setState(() {
+      _isLoading = false;
+      _activeFeatures['rog_monitor'] = isActive;
+    });
     if (isActive) {
       Navigator.push(
         context,
@@ -78,6 +84,15 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
         if (mounted) setState(() => _activeFeatures['rog_monitor'] = false);
       });
     }
+  }
+
+  Future<void> _handleGenericToggle(String key, bool isActive) async {
+    setState(() => _isLoading = true);
+    await Future.delayed(const Duration(milliseconds: 1200));
+    setState(() {
+      _isLoading = false;
+      _activeFeatures[key] = isActive;
+    });
   }
 
   void _applySpecificLatencyMode(String mode) async {
@@ -99,7 +114,13 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
   }
 
   Future<void> _executeLatencyMode(bool isActive) async {
-    setState(() => _activeFeatures['latency_mode'] = isActive);
+    setState(() => _isLoading = true);
+    await Future.delayed(const Duration(milliseconds: 1500));
+    setState(() {
+      _isLoading = false;
+      _activeFeatures['latency_mode'] = isActive;
+    });
+
     if (!isActive) { await _vpnChannel.invokeMethod('stopVpn'); return; }
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -117,9 +138,11 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
     // Check if the current package is a VIP package (either it costs money or the name contains 'vip')
     final isVip = pkgAsync.value != null && ((pkgAsync.value!.price > 0) || (pkgAsync.value!.name.toLowerCase().contains('vip')));
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: SingleChildScrollView(
+    return PageLoadingOverlay(
+      isLoading: _isLoading,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SingleChildScrollView(
         padding: const EdgeInsets.only(left: 20, right: 20, top: 36, bottom: 100),
         physics: const BouncingScrollPhysics(),
         child: Column(
@@ -207,7 +230,7 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
                       iconWidget: const FaIcon(FontAwesomeIcons.crosshairs),
                       isActive: _activeFeatures['game_lab_sensi'] ?? false,
                       isAllowed: features['game_lab_sensi'] == true,
-                      onChanged: (val) => setState(() => _activeFeatures['game_lab_sensi'] = val),
+                      onChanged: (val) => _handleGenericToggle('game_lab_sensi', val),
                     ),
                     FeatureCard(
                       title: "CPU & RAM Tweaks",
@@ -215,7 +238,7 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
                       iconWidget: const FaIcon(FontAwesomeIcons.memory),
                       isActive: _activeFeatures['cpu_tweak'] ?? false,
                       isAllowed: features['cpu_tweak'] == true,
-                      onChanged: (val) => setState(() => _activeFeatures['cpu_tweak'] = val),
+                      onChanged: (val) => _handleGenericToggle('cpu_tweak', val),
                     ),
                     FeatureCard(
                       title: "Latency Mode",
@@ -232,7 +255,7 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
                       iconWidget: const FaIcon(FontAwesomeIcons.tachometerAlt),
                       isActive: _activeFeatures['speed_test'] ?? false,
                       isAllowed: features['speed_test'] == true,
-                      onChanged: (val) => setState(() => _activeFeatures['speed_test'] = val),
+                      onChanged: (val) => _handleGenericToggle('speed_test', val),
                     ),
                     FeatureCard(
                       title: "Smart Switch DPI",
@@ -240,7 +263,7 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
                       iconWidget: const FaIcon(FontAwesomeIcons.mobileAlt),
                       isActive: _activeFeatures['set_dpi'] ?? false,
                       isAllowed: features['set_dpi'] == true,
-                      onChanged: (val) => setState(() => _activeFeatures['set_dpi'] = val),
+                      onChanged: (val) => _handleGenericToggle('set_dpi', val),
                       extraContent: _buildDpiSettings(),
                     ),
                   ],
@@ -252,6 +275,7 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
           ],
         ),
       ),
+    ),
     );
   }
 
