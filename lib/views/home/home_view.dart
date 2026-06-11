@@ -113,6 +113,9 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     final pkgAsync = ref.watch(currentPackageProvider);
     final userAsync = ref.watch(currentUserProvider);
+    
+    // Check if the current package is a VIP package (either it costs money or the name contains 'vip')
+    final isVip = pkgAsync.value != null && ((pkgAsync.value!.price > 0) || (pkgAsync.value!.name.toLowerCase().contains('vip')));
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -131,18 +134,17 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
                   children: [
                     Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: AppColors.neonGreen.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Icon(Icons.rocket_launch_rounded, color: AppColors.neonGreen, size: 12),
+                        Image.asset(
+                          'assets/images/logo.png',
+                          width: 48, 
+                          height: 48,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) => const Icon(Icons.shield, color: AppColors.neonGreen, size: 24),
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 10),
                         Text(
-                          "MFW ENGINE",
-                          style: GoogleFonts.inter(color: AppColors.neonGreen, fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1.5),
+                          "MFW APPS",
+                          style: GoogleFonts.orbitron(color: AppColors.neonGreen, fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: 1.5),
                         ),
                       ],
                     ),
@@ -165,7 +167,9 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
                     border: Border.all(color: AppColors.border),
                     boxShadow: AppColors.cardShadow(),
                   ),
-                  child: const Icon(Icons.speed_rounded, color: AppColors.neonGreen, size: 18),
+                  child: isVip
+                      ? const Icon(Icons.check_circle_rounded, color: AppColors.neonGreen, size: 18)
+                      : Icon(Icons.check_circle_outline_rounded, color: AppColors.textMuted.withOpacity(0.5), size: 18),
                 )
               ],
             ),
@@ -317,7 +321,7 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
               ],
             ),
           ),
-          Switch(value: value, onChanged: onChanged),
+          SciFiSwitch(value: value, onChanged: onChanged),
         ],
       ),
     );
@@ -360,7 +364,7 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
                 Text("Auto-adjust per device", style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 9)),
               ],
             ),
-            Switch(
+            SciFiSwitch(
               value: _displayOpt,
               onChanged: (val) => setState(() => _displayOpt = val),
             ),

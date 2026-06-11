@@ -135,8 +135,8 @@ class FeatureCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              // Switch
-              Switch(
+              // Sci-Fi Switch
+              SciFiSwitch(
                 value: isAllowed ? isActive : false,
                 onChanged: isAllowed ? onChanged : null,
               ),
@@ -149,6 +149,64 @@ class FeatureCard extends StatelessWidget {
             extraContent!,
           ]
         ],
+      ),
+    );
+  }
+}
+
+class SciFiSwitch extends StatelessWidget {
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+
+  const SciFiSwitch({super.key, required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isDisabled = onChanged == null;
+    
+    return GestureDetector(
+      onTap: () {
+        if (!isDisabled) {
+          onChanged!(!value);
+        }
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+        width: 48,
+        height: 24,
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: value ? AppColors.neonGreen.withOpacity(0.15) : AppColors.surface,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isDisabled 
+                ? AppColors.border.withOpacity(0.3) 
+                : (value ? AppColors.neonGreen : AppColors.border),
+            width: 1.5,
+          ),
+          boxShadow: value && !isDisabled
+              ? [BoxShadow(color: AppColors.neonGreen.withOpacity(0.3), blurRadius: 10, spreadRadius: 1)]
+              : [],
+        ),
+        child: AnimatedAlign(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOutBack,
+          alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            width: 16,
+            height: 16,
+            decoration: BoxDecoration(
+              color: isDisabled 
+                  ? AppColors.textMuted.withOpacity(0.2) 
+                  : (value ? AppColors.neonGreen : AppColors.textMuted),
+              borderRadius: BorderRadius.circular(3),
+              boxShadow: value && !isDisabled
+                  ? [BoxShadow(color: AppColors.neonGreen, blurRadius: 5)]
+                  : [],
+            ),
+          ),
+        ),
       ),
     );
   }
