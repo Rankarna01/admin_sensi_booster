@@ -13,6 +13,7 @@ class MainActivity : FlutterActivity() {
     private val VPN_CHANNEL = "com.mfw.sensi_booster/vpn"
     private val OVERLAY_CHANNEL = "com.mfw.sensi_booster/overlay"
     private val CROSSHAIR_CHANNEL = "com.mfw.sensi_booster/crosshair"
+    private val AUTOCLICKER_CHANNEL = "com.mfw.sensi_booster/autoclicker"
     private val VPN_REQUEST_CODE = 0x0F
     private val OVERLAY_REQUEST_CODE = 0x10
     private var pendingMode = "Normal"
@@ -133,6 +134,49 @@ class MainActivity : FlutterActivity() {
                     } else {
                         result.success(true)
                     }
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        // Auto Clicker Channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, AUTOCLICKER_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "isEnabled" -> {
+                    val serviceName = "$packageName/.AutoClickerService"
+                    val enabledServices = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+                    val isEnabled = enabledServices != null && enabledServices.contains(serviceName)
+                    result.success(isEnabled)
+                }
+                "openSettings" -> {
+                    val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    startActivity(intent)
+                    result.success(true)
+                }
+                "start" -> {
+                    val service = AutoClickerService.instance
+                    if (service != null) {
+                        val interval = call.argument<Int>("interval")?.toLong() ?: 100L
+                        val xList = call.argument<List<Double>>("xList") ?: listOf(540.0)
+                        val yList = call.argument<List<Double>>("yList") ?: listOf(960.0)
+                        val points = mutableListOf<FloatArray>()
+                        for (i in 0 until minOf(xList.size, yList.size)) {
+                            points.add(floatArrayOf(xList[i].toFloat(), yList[i].toFloat()))
+                        }
+                        service.startClicking(interval, points)
+                        result.success(true)
+                    } else {
+                        result.success(false)
+                    }
+                }
+                "stop" -> {
+                    val service = AutoClickerService.instance
+                    service?.stopClicking()
+                    result.success(true)
+                }
+                "isRunning" -> {
+                    result.success(AutoClickerService.isRunning)
                 }
                 else -> result.notImplemented()
             }

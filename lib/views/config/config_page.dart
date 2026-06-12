@@ -209,6 +209,7 @@ class ConfigPage extends ConsumerWidget {
       'crosshair': existingPkg?.features['crosshair'] ?? false,
       'rog_monitor': existingPkg?.features['rog_monitor'] ?? false,
       'graphics_tweak': existingPkg?.features['graphics_tweak'] ?? false,
+      'auto_clicker': existingPkg?.features['auto_clicker'] ?? false,
     };
 
     showModalBottomSheet(

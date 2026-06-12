@@ -8,6 +8,7 @@ import '../../core/constants/app_colors.dart';
 import '../../providers/client_provider.dart';
 import '../widgets/feature_card.dart';
 import '../widgets/neon_loading.dart';
+import 'auto_clicker_page.dart';
 
 class FeatureView extends ConsumerStatefulWidget {
   const FeatureView({super.key});
@@ -89,6 +90,23 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
     });
   }
 
+  Future<void> _handleAutoClickerToggle(bool isActive) async {
+    setState(() => _activeFeatures['auto_clicker'] = isActive);
+    if (isActive) {
+      final result = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(builder: (_) => const AutoClickerPage()),
+      );
+      if (mounted) {
+        setState(() {
+          if (result != true) {
+            _activeFeatures['auto_clicker'] = false;
+          }
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final pkgAsync = ref.watch(currentPackageProvider);
@@ -152,6 +170,14 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
                       isActive: _activeFeatures['graphics_tweak'] ?? false,
                       isAllowed: features['graphics_tweak'] == true,
                       onChanged: (val) => _handleGenericToggle('graphics_tweak', val),
+                    ),
+                    FeatureCard(
+                      title: "Macro Auto Clicker",
+                      description: "Auto tap dengan speed & multi-point.",
+                      iconWidget: const FaIcon(FontAwesomeIcons.handPointer),
+                      isActive: _activeFeatures['auto_clicker'] ?? false,
+                      isAllowed: features['auto_clicker'] == true,
+                      onChanged: _handleAutoClickerToggle,
                     ),
                   ],
                 );

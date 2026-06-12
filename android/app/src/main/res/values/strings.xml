@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="autoclicker_service_description">Macro Auto Clicker - Simulates touch input for gaming. This service allows the app to perform automated taps at configurable speeds and positions.</string>
+</resources>
