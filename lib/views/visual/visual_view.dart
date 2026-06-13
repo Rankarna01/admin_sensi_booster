@@ -17,10 +17,43 @@ class VisualView extends ConsumerStatefulWidget {
   ConsumerState<VisualView> createState() => _VisualViewState();
 }
 
-class _VisualViewState extends ConsumerState<VisualView> {
+class _VisualViewState extends ConsumerState<VisualView> with WidgetsBindingObserver {
   final Map<String, bool> _activeFeatures = {};
   bool _isLoading = false;
   static const MethodChannel _channel = MethodChannel('com.mfw.sensi_booster/crosshair');
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _syncCrosshairState();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _syncCrosshairState();
+    }
+  }
+
+  // Sync Flutter toggle state with the actual native service state
+  Future<void> _syncCrosshairState() async {
+    if (kIsWeb) return;
+    try {
+      final bool running = await _channel.invokeMethod('isRunning') ?? false;
+      if (mounted) {
+        setState(() {
+          _activeFeatures['crosshair'] = running;
+        });
+      }
+    } catch (_) {}
+  }
 
   Future<void> _handleCrosshairToggle(bool isActive) async {
     setState(() => _isLoading = true);
@@ -51,7 +84,6 @@ class _VisualViewState extends ConsumerState<VisualView> {
           return;
         }
 
-        // Start with default basic settings
         await _channel.invokeMethod('startCrosshair', {
           'shape': 'cross_dot',
           'color': '#FF0000',
@@ -63,7 +95,7 @@ class _VisualViewState extends ConsumerState<VisualView> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Crosshair Active", style: GoogleFonts.inter(fontWeight: FontWeight.w500)), backgroundColor: AppColors.neonGreenDark),
+            SnackBar(content: Text("Crosshair Active - Double tap to toggle off", style: GoogleFonts.inter(fontWeight: FontWeight.w500)), backgroundColor: AppColors.neonGreenDark),
           );
         }
       } catch (e) {
@@ -75,12 +107,15 @@ class _VisualViewState extends ConsumerState<VisualView> {
       try {
         await _channel.invokeMethod('stopCrosshair');
       } catch (_) {}
+      // Verify it actually stopped
+      _syncCrosshairState();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final pkgAsync = ref.watch(currentPackageProvider);
+    final isCrosshairActive = _activeFeatures['crosshair'] ?? false;
 
     return PageLoadingOverlay(
       isLoading: _isLoading,
@@ -129,10 +164,10 @@ class _VisualViewState extends ConsumerState<VisualView> {
                       title: "Crosshair Overlay",
                       description: "Custom crosshair for precision aiming in games.",
                       iconWidget: const FaIcon(FontAwesomeIcons.crosshairs),
-                      isActive: _activeFeatures['crosshair'] ?? false,
+                      isActive: isCrosshairActive,
                       isAllowed: features['crosshair'] == true,
                       onChanged: _handleCrosshairToggle,
-                      extraContent: _buildCrosshairExtra(),
+                      extraContent: isCrosshairActive ? const CrosshairSettingsPanel() : null,
                     ),
                   ],
                 );
@@ -146,10 +181,4 @@ class _VisualViewState extends ConsumerState<VisualView> {
     ),
     );
   }
-
-  Widget _buildCrosshairExtra() {
-    return const CrosshairSettingsPanel();
-  }
 }
-
-

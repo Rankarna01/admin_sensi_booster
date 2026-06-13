@@ -2,6 +2,8 @@ package com.example.admin_sensi_booster
 
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import android.net.VpnService
 import android.net.Uri
 import android.provider.Settings
@@ -14,6 +16,7 @@ class MainActivity : FlutterActivity() {
     private val OVERLAY_CHANNEL = "com.mfw.sensi_booster/overlay"
     private val CROSSHAIR_CHANNEL = "com.mfw.sensi_booster/crosshair"
     private val AUTOCLICKER_CHANNEL = "com.mfw.sensi_booster/autoclicker"
+    private val GAME_CHANNEL = "com.mfw.sensi_booster/game"
     private val VPN_REQUEST_CODE = 0x0F
     private val OVERLAY_REQUEST_CODE = 0x10
     private var pendingMode = "Normal"
@@ -123,6 +126,9 @@ class MainActivity : FlutterActivity() {
                     stopService(Intent(this, CrosshairOverlayService::class.java))
                     result.success(true)
                 }
+                "isRunning" -> {
+                    result.success(CrosshairOverlayService.isRunning)
+                }
                 "checkPermission" -> {
                     result.success(Settings.canDrawOverlays(this))
                 }
@@ -207,6 +213,65 @@ class MainActivity : FlutterActivity() {
                 "stopAutoClickerOverlay" -> {
                     stopService(Intent(this, AutoClickerOverlayService::class.java))
                     result.success(true)
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        // Game Launcher Channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, GAME_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "launchGame" -> {
+                    val packageName = call.argument<String>("packageName")
+                    if (packageName != null) {
+                        val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
+                        if (launchIntent != null) {
+                            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            startActivity(launchIntent)
+                            // Move Flutter activity to background so the game is in foreground
+                            moveTaskToBack(true)
+                            result.success(true)
+                        } else {
+                            result.success(false)
+                        }
+                    } else {
+                        result.success(false)
+                    }
+                }
+                "getInstalledGames" -> {
+                    val pm = packageManager
+                    val installedApps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
+                    val games = mutableListOf<Map<String, Any>>()
+                    val gameKeywords = listOf(
+                        "game", "legend", "mobile", "pubg", "garena", "codm", "genshin",
+                        "minecraft", "roblox", "valorant", "arena", "battle", "clash",
+                        "war", "shoot", "race", "sport", "fifa", "nba", "moba", "rpg",
+                        "pvp", "fps", "mmorpg", "br", "royale", "survival", "honor",
+                        "kings", "league", "strike", "force", "duty", "impact",
+                        "ff", "mlbb", "bang", "freefire", "brawl", "supercell"
+                    )
+                    for (app in installedApps) {
+                        if (app.flags and ApplicationInfo.FLAG_SYSTEM != 0) continue
+                        if (app.packageName == packageName) continue
+                        val launchIntent = pm.getLaunchIntentForPackage(app.packageName) ?: continue
+                        val category = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                            app.category
+                        } else {
+                            ApplicationInfo.CATEGORY_UNDEFINED
+                        }
+                        val pkgLower = app.packageName.lowercase()
+                        val nameLower = pm.getApplicationLabel(app).toString().lowercase()
+                        val matchesKeyword = gameKeywords.any { pkgLower.contains(it) || nameLower.contains(it) }
+                        val isGame = category == ApplicationInfo.CATEGORY_GAME ||
+                                     (category == ApplicationInfo.CATEGORY_UNDEFINED && matchesKeyword)
+                        if (isGame) {
+                            games.add(mapOf(
+                                "name" to pm.getApplicationLabel(app).toString(),
+                                "package" to app.packageName
+                            ))
+                        }
+                    }
+                    result.success(games)
                 }
                 else -> result.notImplemented()
             }

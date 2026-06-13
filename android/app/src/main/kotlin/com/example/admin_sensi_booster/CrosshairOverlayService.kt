@@ -14,17 +14,27 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PixelFormat
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.IBinder
+import android.view.GestureDetector
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.FrameLayout
 import androidx.core.app.NotificationCompat
 
 class CrosshairOverlayService : Service() {
 
+    companion object {
+        var isRunning: Boolean = false
+            private set
+    }
+
     private var windowManager: WindowManager? = null
     private var crosshairView: CrosshairView? = null
+    private var toggleButton: View? = null
 
     private var crosshairShape = "cross_dot"
     private var crosshairColor = "#FF0000"
@@ -61,10 +71,12 @@ class CrosshairOverlayService : Service() {
         // If view already exists, just update it (don't recreate)
         if (crosshairView != null) {
             crosshairView?.updateSettings()
+            updateToggleButtonPosition()
             return START_NOT_STICKY
         }
 
         // First time setup
+        isRunning = true
         createNotificationAndStartForeground()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(stopReceiver, IntentFilter(ACTION_STOP_CROSSHAIR), Context.RECEIVER_NOT_EXPORTED)
@@ -72,6 +84,7 @@ class CrosshairOverlayService : Service() {
             registerReceiver(stopReceiver, IntentFilter(ACTION_STOP_CROSSHAIR))
         }
         setupCrosshairView()
+        setupToggleButton()
         return START_NOT_STICKY
     }
 
@@ -88,7 +101,7 @@ class CrosshairOverlayService : Service() {
 
         val notification: Notification = NotificationCompat.Builder(this, channelId)
             .setContentTitle("Crosshair Overlay Active")
-            .setContentText("Tap Stop or use app to deactivate")
+            .setContentText("Double-tap crosshair to toggle off")
             .setSmallIcon(android.R.drawable.ic_menu_compass)
             .addAction(android.R.drawable.ic_delete, "Stop", pendingStop)
             .setOngoing(true)
@@ -108,10 +121,6 @@ class CrosshairOverlayService : Service() {
             WindowManager.LayoutParams.TYPE_PHONE
         }
 
-        // FLAG_NOT_TOUCHABLE = zero touch interception = zero game lag
-        // FLAG_LAYOUT_NO_LIMITS = extends overlay into system bar areas (critical for full-screen games)
-        // FLAG_LAYOUT_IN_SCREEN = layout within entire screen
-        // FLAG_HARDWARE_ACCELERATED = GPU compositing with game surfaces
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -124,7 +133,6 @@ class CrosshairOverlayService : Service() {
             PixelFormat.RGBA_8888
         )
 
-        // Cover entire screen including cutout/notch areas
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             params.layoutInDisplayCutoutMode =
                 WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
@@ -139,21 +147,105 @@ class CrosshairOverlayService : Service() {
         }
     }
 
+    // Small touch button at crosshair center for double-tap toggle
+    private fun setupToggleButton() {
+        val density = resources.displayMetrics.density
+        val btnSize = (60 * density).toInt() // 60dp touch target
+
+        val btn = FrameLayout(this)
+
+        // Faint visual indicator
+        val bg = GradientDrawable()
+        bg.shape = GradientDrawable.OVAL
+        bg.setColor(Color.parseColor("#00000000")) // invisible
+        btn.background = bg
+
+        val layoutType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        } else {
+            WindowManager.LayoutParams.TYPE_PHONE
+        }
+
+        val toggleParams = WindowManager.LayoutParams(
+            btnSize, btnSize,
+            layoutType,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        )
+        toggleParams.gravity = Gravity.TOP or Gravity.START
+
+        // Double-tap detector
+        val gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                stopSelf()
+                return true
+            }
+
+            override fun onSingleTapUp(e: MotionEvent): Boolean {
+                // Pass single tap through to the game below
+                return false
+            }
+        })
+
+        btn.setOnTouchListener { v, event ->
+            // Let GestureDetector handle it
+            if (gestureDetector.onTouchEvent(event)) {
+                return@setOnTouchListener true // double-tap consumed
+            }
+            // For single tap and other events, don't consume (pass through to game)
+            when (event.action) {
+                MotionEvent.ACTION_UP -> {
+                    v.performClick()
+                    false // don't consume
+                }
+                else -> false // don't consume
+            }
+        }
+
+        toggleButton = btn
+        updateToggleButtonPosition()
+
+        try {
+            windowManager?.addView(btn, toggleParams)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun updateToggleButtonPosition() {
+        val density = resources.displayMetrics.density
+        val btnSize = (60 * density).toInt()
+        val centerX = (resources.displayMetrics.widthPixels / 2f) + (offsetX * density)
+        val centerY = (resources.displayMetrics.heightPixels / 2f) + (offsetY * density)
+
+        // Position button centered on the crosshair
+        val params = toggleButton?.layoutParams as? WindowManager.LayoutParams
+        if (params != null) {
+            params.x = (centerX - btnSize / 2).toInt()
+            params.y = (centerY - btnSize / 2).toInt()
+            try {
+                windowManager?.updateViewLayout(toggleButton, params)
+            } catch (e: Exception) {}
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        isRunning = false
         try {
             crosshairView?.let { windowManager?.removeView(it) }
         } catch (e: Exception) {}
+        try {
+            toggleButton?.let { windowManager?.removeView(it) }
+        } catch (e: Exception) {}
         crosshairView = null
+        toggleButton = null
         windowManager = null
         try { unregisterReceiver(stopReceiver) } catch (e: Exception) {}
     }
 
     // ====================================================================
     // LIGHTWEIGHT CROSSHAIR VIEW
-    // - Uses hardware layer for GPU-accelerated rendering
-    // - Caches all calculations to avoid GC pressure
-    // - Does NOT intercept touches (FLAG_NOT_TOUCHABLE on parent)
     // ====================================================================
     inner class CrosshairView(context: Context) : View(context) {
 
@@ -179,7 +271,6 @@ class CrosshairOverlayService : Service() {
         private var cachedShape: String = "cross_dot"
 
         init {
-            // Use hardware layer for GPU rendering - much faster
             setLayerType(LAYER_TYPE_HARDWARE, null)
             updateSettings()
         }
