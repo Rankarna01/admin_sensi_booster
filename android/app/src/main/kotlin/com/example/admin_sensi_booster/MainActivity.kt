@@ -242,27 +242,29 @@ class MainActivity : FlutterActivity() {
                     val pm = packageManager
                     val installedApps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
                     val games = mutableListOf<Map<String, Any>>()
+                    val gameKeywords = listOf(
+                        "game", "legend", "mobile", "pubg", "garena", "codm", "genshin",
+                        "minecraft", "roblox", "valorant", "arena", "battle", "clash",
+                        "war", "shoot", "race", "sport", "fifa", "nba", "moba", "rpg",
+                        "pvp", "fps", "mmorpg", "br", "royale", "survival", "honor",
+                        "kings", "league", "strike", "force", "duty", "impact",
+                        "ff", "mlbb", "bang", "freefire", "brawl", "supercell"
+                    )
                     for (app in installedApps) {
-                        // Skip system apps and our own app
                         if (app.flags and ApplicationInfo.FLAG_SYSTEM != 0) continue
                         if (app.packageName == packageName) continue
-                        // Check if it has a launch intent (is launchable)
                         val launchIntent = pm.getLaunchIntentForPackage(app.packageName) ?: continue
-                        // Check if category is game (API 21+)
-                        val appCategory = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                            pm.getApplicationInfo(app.packageName, 0).category
+                        val category = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                            app.category
                         } else {
                             ApplicationInfo.CATEGORY_UNDEFINED
                         }
-                        val isGame = appCategory == ApplicationInfo.CATEGORY_GAME ||
-                                     appCategory == ApplicationInfo.CATEGORY_UNDEFINED
-                        // Also check keywords in package name for games without category
                         val pkgLower = app.packageName.lowercase()
-                        val looksLikeGame = isGame ||
-                            listOf("game", "legend", "mobile", "pubg", "garena", "ff", "codm", "genshin",
-                                   "minecraft", "roblox", "valorant", "arena", "battle", "clash",
-                                   "war", "shoot", "race", "sport", "fifa", "nba").any { pkgLower.contains(it) }
-                        if (looksLikeGame) {
+                        val nameLower = pm.getApplicationLabel(app).toString().lowercase()
+                        val matchesKeyword = gameKeywords.any { pkgLower.contains(it) || nameLower.contains(it) }
+                        val isGame = category == ApplicationInfo.CATEGORY_GAME ||
+                                     (category == ApplicationInfo.CATEGORY_UNDEFINED && matchesKeyword)
+                        if (isGame) {
                             games.add(mapOf(
                                 "name" to pm.getApplicationLabel(app).toString(),
                                 "package" to app.packageName
