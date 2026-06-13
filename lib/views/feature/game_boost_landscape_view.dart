@@ -10,6 +10,7 @@ import 'package:installed_apps/app_info.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_colors.dart';
+import 'mockup_game_screen.dart';
 
 class GameBoostLandscapeView extends StatefulWidget {
   final String appName;
@@ -107,32 +108,18 @@ class _GameBoostLandscapeViewState extends State<GameBoostLandscapeView> with Si
   }
 
   Future<void> _launchGame() async {
-    final bool hasPerm = await _overlayChannel.invokeMethod('checkPermission') ?? false;
-    if (!hasPerm) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Meminta Izin Floating Overlay..."), backgroundColor: Colors.orange)
-        );
-      }
-      await _overlayChannel.invokeMethod('requestPermission');
-      return;
-    }
-
     setState(() => _isLaunching = true);
 
     await Future.delayed(const Duration(seconds: 3));
 
-    await _overlayChannel.invokeMethod('startOverlay', {
-      'showRam': true,
-      'showBattery': true,
-      'showSuhu': true,
-      'showClock': true,
-    });
-
-    InstalledApps.startApp(_selectedGame['package']);
-    
     if (mounted) {
       setState(() => _isLaunching = false);
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => MockupGameScreen(appName: _selectedGame['name']),
+        ),
+      );
     }
   }
 
