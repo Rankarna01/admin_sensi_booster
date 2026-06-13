@@ -18,6 +18,12 @@ class AutoClickerService : AccessibilityService() {
         // Shared state (read by Flutter via MethodChannel)
         var isRunning: Boolean = false
             private set
+
+        // Store last settings so overlay can reuse
+        var lastInterval: Long = 100L
+            private set
+        var lastPoints: List<FloatArray> = listOf(floatArrayOf(540f, 960f))
+            private set
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -47,11 +53,13 @@ class AutoClickerService : AccessibilityService() {
     }
 
     fun startClicking(intervalMs: Long, points: List<FloatArray>) {
-        stopClicking() // Stop any existing clicking first
+        stopClicking()
         if (points.isEmpty()) return
 
-        clickInterval = intervalMs.coerceAtLeast(10L) // Min 10ms
+        clickInterval = intervalMs.coerceAtLeast(10L)
         touchPoints = points
+        lastInterval = clickInterval
+        lastPoints = points
         currentPointIndex = 0
         isRunning = true
 

@@ -178,6 +178,36 @@ class MainActivity : FlutterActivity() {
                 "isRunning" -> {
                     result.success(AutoClickerService.isRunning)
                 }
+                "checkOverlayPermission" -> {
+                    result.success(Settings.canDrawOverlays(this))
+                }
+                "requestOverlayPermission" -> {
+                    if (!Settings.canDrawOverlays(this)) {
+                        val permIntent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:\$packageName"))
+                        startActivityForResult(permIntent, OVERLAY_REQUEST_CODE)
+                    }
+                    result.success(false)
+                }
+                "startAutoClickerOverlay" -> {
+                    if (Settings.canDrawOverlays(this)) {
+                        val intent = Intent(this, AutoClickerOverlayService::class.java)
+                        intent.putExtra("cps", call.argument<Int>("cps") ?: 10)
+                        intent.putExtra("pointCount", call.argument<Int>("pointCount") ?: 1)
+                        intent.putExtra("interval", call.argument<Int>("interval") ?: 100)
+                        val xList = call.argument<List<Double>>("xList") ?: listOf(540.0)
+                        val yList = call.argument<List<Double>>("yList") ?: listOf(960.0)
+                        intent.putExtra("xList", xList.toDoubleArray())
+                        intent.putExtra("yList", yList.toDoubleArray())
+                        startService(intent)
+                        result.success(true)
+                    } else {
+                        result.success(false)
+                    }
+                }
+                "stopAutoClickerOverlay" -> {
+                    stopService(Intent(this, AutoClickerOverlayService::class.java))
+                    result.success(true)
+                }
                 else -> result.notImplemented()
             }
         }

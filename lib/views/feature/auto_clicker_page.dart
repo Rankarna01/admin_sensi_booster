@@ -26,10 +26,37 @@ class _AutoClickerPageState extends State<AutoClickerPage> {
     _TouchPoint(x: 540, y: 960),
   ];
 
+  // Persistent controllers for coordinate inputs
+  final List<TextEditingController> _xControllers = [];
+  final List<TextEditingController> _yControllers = [];
+
   @override
   void initState() {
     super.initState();
+    _syncControllers();
     _checkServiceStatus();
+  }
+
+  @override
+  void dispose() {
+    for (final c in _xControllers) { c.dispose(); }
+    for (final c in _yControllers) { c.dispose(); }
+    super.dispose();
+  }
+
+  void _syncControllers() {
+    while (_xControllers.length < _touchPoints.length) {
+      _xControllers.add(TextEditingController());
+      _yControllers.add(TextEditingController());
+    }
+    while (_xControllers.length > _touchPoints.length) {
+      _xControllers.removeLast().dispose();
+      _yControllers.removeLast().dispose();
+    }
+    for (int i = 0; i < _touchPoints.length; i++) {
+      _xControllers[i].text = '${_touchPoints[i].x}';
+      _yControllers[i].text = '${_touchPoints[i].y}';
+    }
   }
 
   Future<void> _checkServiceStatus() async {
@@ -131,12 +158,12 @@ class _AutoClickerPageState extends State<AutoClickerPage> {
 
   void _addTouchPoint() {
     if (_touchPoints.length >= 10) return;
-    // Spread new points across the screen
     final index = _touchPoints.length;
     final x = 200 + (index * 80) % 700;
     final y = 400 + (index * 120) % 1200;
     setState(() {
       _touchPoints.add(_TouchPoint(x: x, y: y));
+      _syncControllers();
     });
   }
 
@@ -144,6 +171,7 @@ class _AutoClickerPageState extends State<AutoClickerPage> {
     if (_touchPoints.length <= 1) return;
     setState(() {
       _touchPoints.removeLast();
+      _syncControllers();
     });
   }
 
@@ -156,9 +184,9 @@ class _AutoClickerPageState extends State<AutoClickerPage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.neonGreen, size: 18),
-          onPressed: () {
-            if (_isRunning) _stopClicker();
-            Navigator.pop(context, _isRunning);
+          onPressed: () async {
+            if (_isRunning) await _stopClicker();
+            if (mounted) Navigator.pop(context, _isRunning);
           },
         ),
         title: Text(
@@ -212,7 +240,7 @@ class _AutoClickerPageState extends State<AutoClickerPage> {
             const SizedBox(height: 24),
 
             // TOUCH POINTS
-            _buildSectionTitle("TOUCH POINTS", Icons.touch_app_rounded),
+            _buildSectionTitle("TOUCH POINTS", Icons.gps_fixed_rounded),
             const SizedBox(height: 6),
             Text("${_touchPoints.length} point(s) configured", style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 10)),
             const SizedBox(height: 10),
@@ -229,6 +257,22 @@ class _AutoClickerPageState extends State<AutoClickerPage> {
 
             // PLAY / STOP BUTTON
             _buildActionButtons(),
+            const SizedBox(height: 12),
+
+            // FLOATING OVERLAY BUTTON
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _launchFloatingOverlay,
+                icon: const Icon(Icons.open_in_new_rounded, color: AppColors.neonGreen, size: 16),
+                label: Text("LAUNCH SIDE PANEL", style: GoogleFonts.inter(color: AppColors.neonGreen, fontWeight: FontWeight.w700, fontSize: 12)),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: AppColors.neonGreen.withOpacity(0.4)),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
             const SizedBox(height: 20),
 
             // TIP
@@ -464,9 +508,9 @@ class _AutoClickerPageState extends State<AutoClickerPage> {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Expanded(child: _buildCoordInput("X", point.x, (v) { setState(() => point.x = v); })),
+                  Expanded(child: _buildCoordInput("X", i, true)),
                   const SizedBox(width: 8),
-                  Expanded(child: _buildCoordInput("Y", point.y, (v) { setState(() => point.y = v); })),
+                  Expanded(child: _buildCoordInput("Y", i, false)),
                 ],
               ),
             ],
@@ -476,14 +520,15 @@ class _AutoClickerPageState extends State<AutoClickerPage> {
     );
   }
 
-  Widget _buildCoordInput(String label, int value, ValueChanged<int> onChanged) {
+  Widget _buildCoordInput(String label, int index, bool isX) {
+    final controller = isX ? _xControllers[index] : _yControllers[index];
     return Row(
       children: [
         Text(label, style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w700)),
         const SizedBox(width: 6),
         Expanded(
           child: TextField(
-            controller: TextEditingController(text: "$value"),
+            controller: controller,
             keyboardType: TextInputType.number,
             style: GoogleFonts.inter(color: AppColors.textWhite, fontSize: 12, fontWeight: FontWeight.w600),
             textAlign: TextAlign.center,
@@ -497,7 +542,12 @@ class _AutoClickerPageState extends State<AutoClickerPage> {
             ),
             onChanged: (val) {
               final parsed = int.tryParse(val);
-              if (parsed != null) onChanged(parsed);
+              if (parsed != null) {
+                setState(() {
+                  if (isX) _touchPoints[index].x = parsed;
+                  else _touchPoints[index].y = parsed;
+                });
+              }
             },
           ),
         ),
@@ -576,6 +626,50 @@ class _AutoClickerPageState extends State<AutoClickerPage> {
         ),
       ),
     );
+  }
+
+  // === LAUNCH FLOATING OVERLAY ===
+  Future<void> _launchFloatingOverlay() async {
+    try {
+      // Check overlay permission
+      final bool hasPerm = await _channel.invokeMethod('checkOverlayPermission') ?? false;
+      if (!hasPerm) {
+        await _channel.invokeMethod('requestOverlayPermission');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Overlay permission needed", style: GoogleFonts.inter(fontWeight: FontWeight.w500)), backgroundColor: Colors.orange),
+          );
+        }
+        return;
+      }
+
+      final intervalMs = (1000 / _cps).round();
+      final xList = _touchPoints.map((p) => p.x.toDouble()).toList();
+      final yList = _touchPoints.map((p) => p.y.toDouble()).toList();
+
+      await _channel.invokeMethod('startAutoClickerOverlay', {
+        'interval': intervalMs,
+        'cps': _cps,
+        'pointCount': _touchPoints.length,
+        'xList': xList,
+        'yList': yList,
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Floating panel active! Tap the side icon.", style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
+            backgroundColor: AppColors.neonGreenDark,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.redAccent),
+        );
+      }
+    }
   }
 
   // === COUNTER BUTTON ===

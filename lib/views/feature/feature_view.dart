@@ -174,7 +174,7 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
                     FeatureCard(
                       title: "Macro Auto Clicker",
                       description: "Auto tap dengan speed & multi-point.",
-                      iconWidget: const FaIcon(FontAwesomeIcons.handPointer),
+                      iconWidget: const FaIcon(FontAwesomeIcons.bolt),
                       isActive: _activeFeatures['auto_clicker'] ?? false,
                       isAllowed: features['auto_clicker'] == true,
                       onChanged: _handleAutoClickerToggle,
