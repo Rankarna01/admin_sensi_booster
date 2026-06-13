@@ -66,7 +66,11 @@ class CrosshairOverlayService : Service() {
 
         // First time setup
         createNotificationAndStartForeground()
-        registerReceiver(stopReceiver, IntentFilter(ACTION_STOP_CROSSHAIR))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(stopReceiver, IntentFilter(ACTION_STOP_CROSSHAIR), Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(stopReceiver, IntentFilter(ACTION_STOP_CROSSHAIR))
+        }
         setupCrosshairView()
         return START_NOT_STICKY
     }
@@ -104,16 +108,27 @@ class CrosshairOverlayService : Service() {
             WindowManager.LayoutParams.TYPE_PHONE
         }
 
-        // KEY FIX: FLAG_NOT_TOUCHABLE = zero touch interception = zero game lag
+        // FLAG_NOT_TOUCHABLE = zero touch interception = zero game lag
+        // FLAG_LAYOUT_NO_LIMITS = extends overlay into system bar areas (critical for full-screen games)
+        // FLAG_LAYOUT_IN_SCREEN = layout within entire screen
+        // FLAG_HARDWARE_ACCELERATED = GPU compositing with game surfaces
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
             layoutType,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            PixelFormat.TRANSLUCENT
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                    WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+            PixelFormat.RGBA_8888
         )
+
+        // Cover entire screen including cutout/notch areas
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            params.layoutInDisplayCutoutMode =
+                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        }
 
         params.gravity = Gravity.TOP or Gravity.START
 

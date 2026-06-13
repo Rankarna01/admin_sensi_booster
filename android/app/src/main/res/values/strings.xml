@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="autoclicker_service_description">Macro Auto Clicker - Simulates touch input for gaming. This service allows the app to perform automated taps at configurable speeds and positions.</string>
+    <string name="autoclicker_service_description">Sensi Booster - Auto Clicker Feature\n\nThis accessibility service enables the auto-clicker functionality for gaming assistance. It allows you to set custom tap speed and multiple touch points. The service only performs gestures when you explicitly activate it from the app. No data is collected or transmitted.</string>
 </resources>
