@@ -24,6 +24,7 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 
 class AutoClickerOverlayService : Service() {
@@ -39,7 +40,21 @@ class AutoClickerOverlayService : Service() {
     private var cps = 10
     private var pointCount = 1
     private var intervalMs = 100
-    private var touchPoints: List<FloatArray> = listOf()
+    private var touchPoints = mutableListOf<FloatArray>()
+
+    // ═══ Mapping Mode ═══
+    private var isMapping = false
+    private val pointMarkers = mutableListOf<View>()
+    private val markerLayoutParams = mutableListOf<WindowManager.LayoutParams>()
+    private var mappingToolbar: LinearLayout? = null
+    private var mappingToolbarParams: WindowManager.LayoutParams? = null
+    private var mappingCountLabel: TextView? = null
+
+    private val layoutType: Int
+        get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        else
+            @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
 
     private val ACTION_STOP_OVERLAY = "com.example.admin_sensi_booster.STOP_AC_OVERLAY"
 
@@ -61,25 +76,36 @@ class AutoClickerOverlayService : Service() {
         val yList = intent?.getDoubleArrayExtra("yList")?.toList() ?: listOf(960.0)
         touchPoints = (0 until minOf(xList.size, yList.size)).map { i ->
             floatArrayOf(xList[i].toFloat(), yList[i].toFloat())
-        }
+        }.toMutableList()
 
         createNotification()
 
-        if (edgeButton != null) {
-            try { windowManager?.removeView(edgeButton) } catch (e: Exception) {}
-            try { windowManager?.removeView(panelLayout) } catch (e: Exception) {}
-            try { unregisterReceiver(stopReceiver) } catch (e: Exception) {}
-        }
+        // Clean up any previous views
+        cleanupAllViews()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(stopReceiver, IntentFilter(ACTION_STOP_OVERLAY), Context.RECEIVER_NOT_EXPORTED)
         } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
             registerReceiver(stopReceiver, IntentFilter(ACTION_STOP_OVERLAY))
         }
         setupEdgeButton()
         setupPanel()
         return START_NOT_STICKY
     }
+
+    private fun cleanupAllViews() {
+        exitMappingMode()
+        try { windowManager?.removeView(edgeButton) } catch (_: Exception) {}
+        try { windowManager?.removeView(panelLayout) } catch (_: Exception) {}
+        edgeButton = null
+        panelLayout = null
+        try { unregisterReceiver(stopReceiver) } catch (_: Exception) {}
+    }
+
+    // ═══════════════════════════════════════════
+    // NOTIFICATION
+    // ═══════════════════════════════════════════
 
     private fun createNotification() {
         val channelId = "autoclicker_overlay"
@@ -100,11 +126,14 @@ class AutoClickerOverlayService : Service() {
         startForeground(1003, notification)
     }
 
+    // ═══════════════════════════════════════════
+    // EDGE BUTTON (floating draggable icon)
+    // ═══════════════════════════════════════════
+
     private fun setupEdgeButton() {
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         val density = resources.displayMetrics.density
 
-        // Small edge handle on right side
         val btn = FrameLayout(this)
         val btnSize = (48 * density).toInt()
         val bg = GradientDrawable()
@@ -123,10 +152,6 @@ class AutoClickerOverlayService : Service() {
             Gravity.CENTER
         )
         btn.addView(icon, iconParams)
-
-        val layoutType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        else WindowManager.LayoutParams.TYPE_PHONE
 
         edgeParams = WindowManager.LayoutParams(
             btnSize, (60 * density).toInt(),
@@ -167,7 +192,7 @@ class AutoClickerOverlayService : Service() {
                         if (Math.abs(dx) > 10 || Math.abs(dy) > 10) isDrag = true
                         edgeParams?.x = initialX + dx.toInt()
                         edgeParams?.y = initialY + dy.toInt()
-                        try { windowManager?.updateViewLayout(edgeButton, edgeParams) } catch (e: Exception) {}
+                        try { windowManager?.updateViewLayout(edgeButton, edgeParams) } catch (_: Exception) {}
                         return true
                     }
                     MotionEvent.ACTION_UP -> {
@@ -180,6 +205,10 @@ class AutoClickerOverlayService : Service() {
         })
     }
 
+    // ═══════════════════════════════════════════
+    // CONTROL PANEL
+    // ═══════════════════════════════════════════
+
     private fun setupPanel() {
         val density = resources.displayMetrics.density
         val screenWidth = resources.displayMetrics.widthPixels
@@ -187,11 +216,11 @@ class AutoClickerOverlayService : Service() {
         panelLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding((14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt())
-            val bg = GradientDrawable()
-            bg.cornerRadius = 14 * density
-            bg.setColor(Color.parseColor("#EE111215"))
-            bg.setStroke((1 * density).toInt(), Color.parseColor("#334ADE80"))
-            background = bg
+            val panelBg = GradientDrawable()
+            panelBg.cornerRadius = 14 * density
+            panelBg.setColor(Color.parseColor("#EE111215"))
+            panelBg.setStroke((1 * density).toInt(), Color.parseColor("#334ADE80"))
+            background = panelBg
         }
 
         // Title
@@ -203,8 +232,12 @@ class AutoClickerOverlayService : Service() {
         }
         panelLayout?.addView(title)
 
-        // Status
-        val statusRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, (8 * density).toInt(), 0, 0) }
+        // Status row
+        val statusRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, (8 * density).toInt(), 0, 0)
+        }
         val statusDot = View(this).apply {
             val s = (6 * density).toInt()
             layoutParams = LinearLayout.LayoutParams(s, s).apply { marginEnd = (6 * density).toInt() }
@@ -223,7 +256,7 @@ class AutoClickerOverlayService : Service() {
 
         // Info
         val info = TextView(this).apply {
-            text = "$cps CPS \u2022 $pointCount point(s)"
+            text = "$cps CPS \u2022 ${touchPoints.size} point(s)"
             setTextColor(Color.parseColor("#94A3B8"))
             textSize = 9f
             setPadding(0, (4 * density).toInt(), 0, 0)
@@ -231,7 +264,7 @@ class AutoClickerOverlayService : Service() {
         panelLayout?.addView(info)
 
         // Start button
-        val startBtn = makeButton("START", Color.parseColor("#4ADE80"), Color.parseColor("#0A0B0D")) {
+        val startBtn = makeButton("START", android.R.drawable.ic_media_play, Color.parseColor("#4ADE80"), Color.parseColor("#0A0B0D")) {
             val service = AutoClickerService.instance
             if (service != null) {
                 if (touchPoints.isNotEmpty()) {
@@ -239,27 +272,53 @@ class AutoClickerOverlayService : Service() {
                 } else {
                     service.startClicking(AutoClickerService.lastInterval, AutoClickerService.lastPoints)
                 }
-                updatePanelStatus()
+                statusText.text = "RUNNING"
+                statusText.setTextColor(Color.parseColor("#4ADE80"))
+                statusDot.background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.parseColor("#4ADE80")) }
+                Toast.makeText(this, "Auto Clicker Started!", Toast.LENGTH_SHORT).show()
+                refreshPanel()
+            } else {
+                statusText.text = "ERROR: ENABLE ACCESSIBILITY"
+                statusText.setTextColor(Color.parseColor("#EF4444"))
+                statusDot.background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.parseColor("#EF4444")) }
+                Toast.makeText(this, "Enable Accessibility Service first in Settings!", Toast.LENGTH_LONG).show()
+                
+                try {
+                    val intent = android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                    intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    startActivity(intent)
+                    
+                    // Collapse panel when jumping to settings
+                    togglePanel()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
         }
         panelLayout?.addView(startBtn)
 
         // Stop button
-        val stopBtn = makeButton("STOP", Color.parseColor("#EF4444"), Color.parseColor("#FFFFFF")) {
+        val stopBtn = makeButton("STOP", android.R.drawable.ic_media_pause, Color.parseColor("#EF4444"), Color.parseColor("#FFFFFF")) {
             AutoClickerService.instance?.stopClicking()
-            updatePanelStatus()
+            statusText.text = "STOPPED"
+            statusText.setTextColor(Color.parseColor("#94A3B8"))
+            statusDot.background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.parseColor("#64748B")) }
+            Toast.makeText(this, "Auto Clicker Stopped!", Toast.LENGTH_SHORT).show()
+            refreshPanel()
         }
         panelLayout?.addView(stopBtn)
 
+        // ═══ MAP POINTS button ═══
+        val mapBtn = makeButton("MAP POINTS", android.R.drawable.ic_dialog_map, Color.parseColor("#3B82F6"), Color.parseColor("#FFFFFF")) {
+            enterMappingMode()
+        }
+        panelLayout?.addView(mapBtn)
+
         // Close overlay button
-        val closeBtn = makeButton("CLOSE PANEL", Color.parseColor("#64748B"), Color.parseColor("#FFFFFF")) {
+        val closeBtn = makeButton("CLOSE PANEL", android.R.drawable.ic_menu_close_clear_cancel, Color.parseColor("#64748B"), Color.parseColor("#FFFFFF")) {
             stopSelf()
         }
         panelLayout?.addView(closeBtn)
-
-        val layoutType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        else WindowManager.LayoutParams.TYPE_PHONE
 
         panelParams = WindowManager.LayoutParams(
             (200 * density).toInt(),
@@ -272,42 +331,55 @@ class AutoClickerOverlayService : Service() {
         panelParams?.x = screenWidth - (210 * density).toInt()
         panelParams?.y = edgeParams?.y ?: 200
 
-        try { windowManager?.addView(panelLayout, panelParams) } catch (e: Exception) {}
+        try { windowManager?.addView(panelLayout, panelParams) } catch (_: Exception) {}
         panelLayout?.visibility = View.GONE
     }
 
-    private fun makeButton(text: String, bgColor: Int, textColor: Int, onClick: () -> Unit): View {
+    private fun makeButton(text: String, iconResId: Int, bgColor: Int, textColor: Int, onClick: () -> Unit): View {
         val density = resources.displayMetrics.density
-        val btn = TextView(this).apply {
+        
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, (8 * density).toInt(), 0, (8 * density).toInt())
+        }
+
+        val icon = ImageView(this).apply {
+            setImageResource(iconResId)
+            setColorFilter(textColor)
+            layoutParams = LinearLayout.LayoutParams((14 * density).toInt(), (14 * density).toInt()).apply {
+                marginEnd = (6 * density).toInt()
+            }
+        }
+
+        val textView = TextView(this).apply {
             this.text = text
             setTextColor(textColor)
             textSize = 10f
             setTypeface(null, android.graphics.Typeface.BOLD)
-            gravity = Gravity.CENTER
-            setPadding(0, (8 * density).toInt(), 0, (8 * density).toInt())
         }
+
+        layout.addView(icon)
+        layout.addView(textView)
+
         val bg = GradientDrawable()
         bg.cornerRadius = 8 * density
         bg.setColor(bgColor)
-        btn.background = bg
+        layout.background = bg
+        
         val params = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply { topMargin = (6 * density).toInt() }
-        btn.layoutParams = params
-        btn.setOnClickListener { onClick() }
-        return btn
-    }
+        layout.layoutParams = params
 
-    private fun updatePanelStatus() {
-        try { windowManager?.removeView(panelLayout) } catch (e: Exception) {}
-        try { windowManager?.removeView(edgeButton) } catch (e: Exception) {}
-        setupEdgeButton()
-        setupPanel()
-        if (isPanelOpen) panelLayout?.visibility = View.VISIBLE
+        layout.setOnClickListener { onClick() }
+
+        return layout
     }
 
     private fun togglePanel() {
+        if (isMapping) return // Don't toggle panel while mapping
         if (isPanelOpen) {
             panelLayout?.visibility = View.GONE
             isPanelOpen = false
@@ -317,11 +389,321 @@ class AutoClickerOverlayService : Service() {
         }
     }
 
+    private fun refreshPanel() {
+        try { windowManager?.removeView(panelLayout) } catch (_: Exception) {}
+        try { windowManager?.removeView(edgeButton) } catch (_: Exception) {}
+        setupEdgeButton()
+        setupPanel()
+        if (isPanelOpen) panelLayout?.visibility = View.VISIBLE
+    }
+
+    // ═══════════════════════════════════════════
+    // KEY MAP / MAPPING MODE
+    // ═══════════════════════════════════════════
+
+    private fun enterMappingMode() {
+        if (isMapping) return
+        isMapping = true
+
+        // Hide panel and edge button
+        panelLayout?.visibility = View.GONE
+        edgeButton?.visibility = View.GONE
+        isPanelOpen = false
+
+        val density = resources.displayMetrics.density
+        val markerSize = (48 * density).toInt()
+
+        // Create draggable markers for each existing touch point
+        for (i in touchPoints.indices) {
+            addMarkerAtPixel(
+                touchPoints[i][0].toInt(),
+                touchPoints[i][1].toInt(),
+                markerSize,
+                density
+            )
+        }
+
+        // Show the mapping toolbar at bottom
+        showMappingToolbar(density)
+    }
+
+    private fun addMarkerAtPixel(centerX: Int, centerY: Int, markerSize: Int, density: Float) {
+        val index = pointMarkers.size
+        val marker = createMarkerView(index, density)
+        val params = WindowManager.LayoutParams(
+            markerSize, markerSize,
+            layoutType,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        )
+        params.gravity = Gravity.TOP or Gravity.START
+        params.x = centerX - markerSize / 2
+        params.y = centerY - markerSize / 2
+
+        setupMarkerDrag(marker, index, params)
+
+        pointMarkers.add(marker)
+        markerLayoutParams.add(params)
+        try { windowManager?.addView(marker, params) } catch (_: Exception) {}
+    }
+
+    private fun createMarkerView(index: Int, density: Float): FrameLayout {
+        val frame = FrameLayout(this)
+
+        // Outer glow ring
+        val outerRing = View(this).apply {
+            val ringBg = GradientDrawable()
+            ringBg.shape = GradientDrawable.OVAL
+            ringBg.setColor(Color.TRANSPARENT)
+            ringBg.setStroke((1 * density).toInt(), Color.parseColor("#554ADE80"))
+            background = ringBg
+        }
+        frame.addView(outerRing, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        ))
+
+        // Inner circle
+        val innerSize = (32 * density).toInt()
+        val inner = FrameLayout(this).apply {
+            val bg = GradientDrawable()
+            bg.shape = GradientDrawable.OVAL
+            bg.setColor(Color.parseColor("#AA1A3A2A"))
+            bg.setStroke((2 * density).toInt(), Color.parseColor("#4ADE80"))
+            background = bg
+        }
+
+        // Number label
+        val text = TextView(this).apply {
+            text = "${index + 1}"
+            setTextColor(Color.WHITE)
+            textSize = 13f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            gravity = Gravity.CENTER
+        }
+        inner.addView(text, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        ))
+
+        val innerParams = FrameLayout.LayoutParams(innerSize, innerSize, Gravity.CENTER)
+        frame.addView(inner, innerParams)
+
+        // Crosshair lines
+        val lineThick = (1 * density).toInt().coerceAtLeast(1)
+        val lineLen = (8 * density).toInt()
+        val lineColor = Color.parseColor("#884ADE80")
+
+        // Top line
+        val topLine = View(this).apply { setBackgroundColor(lineColor) }
+        frame.addView(topLine, FrameLayout.LayoutParams(lineThick, lineLen, Gravity.CENTER_HORIZONTAL or Gravity.TOP))
+
+        // Bottom line
+        val botLine = View(this).apply { setBackgroundColor(lineColor) }
+        frame.addView(botLine, FrameLayout.LayoutParams(lineThick, lineLen, Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM))
+
+        // Left line
+        val leftLine = View(this).apply { setBackgroundColor(lineColor) }
+        frame.addView(leftLine, FrameLayout.LayoutParams(lineLen, lineThick, Gravity.START or Gravity.CENTER_VERTICAL))
+
+        // Right line
+        val rightLine = View(this).apply { setBackgroundColor(lineColor) }
+        frame.addView(rightLine, FrameLayout.LayoutParams(lineLen, lineThick, Gravity.END or Gravity.CENTER_VERTICAL))
+
+        return frame
+    }
+
+    private fun setupMarkerDrag(view: View, index: Int, params: WindowManager.LayoutParams) {
+        view.setOnTouchListener(object : View.OnTouchListener {
+            private var initialX = 0
+            private var initialY = 0
+            private var initialTouchX = 0f
+            private var initialTouchY = 0f
+
+            override fun onTouch(v: View, event: MotionEvent): Boolean {
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        initialX = params.x
+                        initialY = params.y
+                        initialTouchX = event.rawX
+                        initialTouchY = event.rawY
+                        return true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        params.x = initialX + (event.rawX - initialTouchX).toInt()
+                        params.y = initialY + (event.rawY - initialTouchY).toInt()
+                        try { windowManager?.updateViewLayout(view, params) } catch (_: Exception) {}
+                        return true
+                    }
+                }
+                return false
+            }
+        })
+    }
+
+    // ── Mapping Toolbar ──────────────────────
+
+    private fun showMappingToolbar(density: Float) {
+        mappingToolbar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding((12 * density).toInt(), (10 * density).toInt(), (12 * density).toInt(), (10 * density).toInt())
+            gravity = Gravity.CENTER_VERTICAL
+
+            val bg = GradientDrawable()
+            bg.cornerRadius = 16 * density
+            bg.setColor(Color.parseColor("#F0111215"))
+            bg.setStroke((1.5 * density).toInt(), Color.parseColor("#4ADE80"))
+            background = bg
+        }
+
+        // Point count label
+        mappingCountLabel = TextView(this).apply {
+            text = "${pointMarkers.size} pts"
+            setTextColor(Color.parseColor("#4ADE80"))
+            textSize = 11f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            layoutParams = LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+            )
+        }
+        mappingToolbar?.addView(mappingCountLabel)
+
+        // Add point button
+        val addBtn = createToolbarButton("+", "#4ADE80", "#0A0B0D", density) {
+            if (pointMarkers.size < 10) {
+                val screenW = resources.displayMetrics.widthPixels
+                val screenH = resources.displayMetrics.heightPixels
+                val markerSize = (48 * density).toInt()
+                // Place new point at center of screen
+                addMarkerAtPixel(screenW / 2, screenH / 2, markerSize, density)
+                mappingCountLabel?.text = "${pointMarkers.size} pts"
+            }
+        }
+        mappingToolbar?.addView(addBtn)
+
+        // Remove last point button
+        val removeBtn = createToolbarButton("−", "#EF4444", "#FFFFFF", density) {
+            if (pointMarkers.size > 1) {
+                val last = pointMarkers.removeAt(pointMarkers.size - 1)
+                markerLayoutParams.removeAt(markerLayoutParams.size - 1)
+                try { windowManager?.removeView(last) } catch (_: Exception) {}
+                mappingCountLabel?.text = "${pointMarkers.size} pts"
+            }
+        }
+        mappingToolbar?.addView(removeBtn)
+
+        // Save button
+        val saveBtn = createToolbarButton("✓ SAVE", "#4ADE80", "#0A0B0D", density) {
+            saveMappingPositions()
+        }
+        mappingToolbar?.addView(saveBtn)
+
+        // Cancel button
+        val cancelBtn = createToolbarButton("✕", "#64748B", "#FFFFFF", density) {
+            exitMappingMode()
+            edgeButton?.visibility = View.VISIBLE
+        }
+        mappingToolbar?.addView(cancelBtn)
+
+        val screenWidth = resources.displayMetrics.widthPixels
+        val margin = (20 * density).toInt()
+
+        mappingToolbarParams = WindowManager.LayoutParams(
+            screenWidth - margin * 2,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            layoutType,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        )
+        mappingToolbarParams?.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+        mappingToolbarParams?.y = (20 * density).toInt()
+
+        try { windowManager?.addView(mappingToolbar, mappingToolbarParams) } catch (_: Exception) {}
+    }
+
+    private fun createToolbarButton(
+        text: String, bgHex: String, textHex: String,
+        density: Float, onClick: () -> Unit
+    ): View {
+        val btn = TextView(this).apply {
+            this.text = text
+            setTextColor(Color.parseColor(textHex))
+            textSize = 11f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(
+                (12 * density).toInt(), (8 * density).toInt(),
+                (12 * density).toInt(), (8 * density).toInt()
+            )
+            setOnClickListener { onClick() }
+        }
+        val bg = GradientDrawable()
+        bg.cornerRadius = 8 * density
+        bg.setColor(Color.parseColor(bgHex))
+        btn.background = bg
+        btn.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { marginStart = (4 * density).toInt() }
+        return btn
+    }
+
+    // ── Save & Exit Mapping ──────────────────
+
+    private fun saveMappingPositions() {
+        val density = resources.displayMetrics.density
+        val markerSize = (48 * density).toInt()
+        val halfSize = markerSize / 2
+
+        // Convert marker positions to touch point coordinates
+        touchPoints.clear()
+        for (params in markerLayoutParams) {
+            val centerX = (params.x + halfSize).toFloat()
+            val centerY = (params.y + halfSize).toFloat()
+            touchPoints.add(floatArrayOf(centerX, centerY))
+        }
+        pointCount = touchPoints.size
+
+        // Update the running clicker service immediately
+        val service = AutoClickerService.instance
+        if (service != null && AutoClickerService.isRunning) {
+            service.updateSettings(intervalMs.toLong(), touchPoints)
+        }
+
+        exitMappingMode()
+
+        // Show edge button and refresh panel with new point count
+        edgeButton?.visibility = View.VISIBLE
+        refreshPanel()
+    }
+
+    private fun exitMappingMode() {
+        if (!isMapping) return
+        isMapping = false
+
+        // Remove all marker views
+        for (marker in pointMarkers) {
+            try { windowManager?.removeView(marker) } catch (_: Exception) {}
+        }
+        pointMarkers.clear()
+        markerLayoutParams.clear()
+
+        // Remove toolbar
+        try { windowManager?.removeView(mappingToolbar) } catch (_: Exception) {}
+        mappingToolbar = null
+        mappingCountLabel = null
+    }
+
+    // ═══════════════════════════════════════════
+    // LIFECYCLE
+    // ═══════════════════════════════════════════
+
     override fun onDestroy() {
         super.onDestroy()
-        try { windowManager?.removeView(edgeButton) } catch (e: Exception) {}
-        try { windowManager?.removeView(panelLayout) } catch (e: Exception) {}
+        exitMappingMode()
+        try { windowManager?.removeView(edgeButton) } catch (_: Exception) {}
+        try { windowManager?.removeView(panelLayout) } catch (_: Exception) {}
         edgeButton = null; panelLayout = null; windowManager = null
-        try { unregisterReceiver(stopReceiver) } catch (e: Exception) {}
+        try { unregisterReceiver(stopReceiver) } catch (_: Exception) {}
     }
 }

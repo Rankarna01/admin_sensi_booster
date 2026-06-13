@@ -55,10 +55,10 @@
         </service>
         
         <!-- Floating Game Tools Service -->
-        <service android:name=".FloatingIconService" android:exported="false"/>
+        <service android:name=".FloatingIconService" android:exported="false" android:foregroundServiceType="specialUse"/>
         
         <!-- Crosshair Overlay Service -->
-        <service android:name=".CrosshairOverlayService" android:exported="false"/>
+        <service android:name=".CrosshairOverlayService" android:exported="false" android:foregroundServiceType="specialUse"/>
 
         <!-- Auto Clicker Accessibility Service -->
         <service
