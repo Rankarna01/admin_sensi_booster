@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -184,19 +185,70 @@ class _GameBoostLandscapeViewState extends ConsumerState<GameBoostLandscapeView>
             ),
           ),
 
-          // Green gradient overlay
+          // Game icon as blurred background (right side)
           Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                  colors: [
-                    Colors.black.withOpacity(0.8),
-                    Colors.black.withOpacity(0.2),
-                    AppColors.neonGreen.withOpacity(0.1),
-                  ],
-                  stops: const [0.0, 0.5, 1.0],
+            child: FutureBuilder<AppInfo?>(
+              future: InstalledApps.getAppInfo(_selectedGame['package']),
+              builder: (context, snapshot) {
+                if (snapshot.hasData && snapshot.data?.icon != null) {
+                  return Stack(
+                    children: [
+                      // Large blurred game icon
+                      Positioned(
+                        right: -50,
+                        top: -30,
+                        bottom: -30,
+                        width: MediaQuery.of(context).size.width * 0.55,
+                        child: ImageFiltered(
+                          imageFilter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
+                          child: Image.memory(
+                            snapshot.data!.icon!,
+                            fit: BoxFit.contain,
+                            alignment: Alignment.center,
+                            gaplessPlayback: true,
+                          ),
+                        ),
+                      ),
+                      // Dark overlay to maintain text readability
+                      Positioned.fill(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                              colors: [
+                                Colors.black.withOpacity(0.95),
+                                Colors.black.withOpacity(0.5),
+                                Colors.black.withOpacity(0.3),
+                              ],
+                              stops: const [0.0, 0.4, 1.0],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+
+          // Green gradient overlay (subtle tint)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      Colors.transparent,
+                      Colors.transparent,
+                      AppColors.neonGreen.withOpacity(0.08),
+                    ],
+                    stops: const [0.0, 0.5, 1.0],
+                  ),
                 ),
               ),
             ),
@@ -310,6 +362,35 @@ class _GameBoostLandscapeViewState extends ConsumerState<GameBoostLandscapeView>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
+                            // Game icon
+                            FutureBuilder<AppInfo?>(
+                              future: InstalledApps.getAppInfo(_selectedGame['package']),
+                              builder: (context, snapshot) {
+                                if (snapshot.hasData && snapshot.data?.icon != null) {
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 12),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(18),
+                                      boxShadow: [
+                                        BoxShadow(color: AppColors.neonGreen.withOpacity(0.3), blurRadius: 20, spreadRadius: -5),
+                                        BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 10),
+                                      ],
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(18),
+                                      child: Image.memory(
+                                        snapshot.data!.icon!,
+                                        width: 80,
+                                        height: 80,
+                                        fit: BoxFit.cover,
+                                        gaplessPlayback: true,
+                                      ),
+                                    ),
+                                  );
+                                }
+                                return const SizedBox.shrink();
+                              },
+                            ),
                             Text(
                               _selectedGame['name'],
                               style: GoogleFonts.orbitron(

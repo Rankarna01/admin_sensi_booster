@@ -148,7 +148,7 @@ class _GameLauncherViewState extends ConsumerState<GameLauncherView> {
                     ),
                   ),
                   SizedBox(
-                    height: 110,
+                    height: 140,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
@@ -260,7 +260,7 @@ class _GameLauncherViewState extends ConsumerState<GameLauncherView> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            const Spacer(),
+            const Spacer(flex: 1),
             // Feature icons row
             _buildFeatureIcons(pkgAsync),
           ],
