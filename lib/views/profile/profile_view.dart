@@ -15,12 +15,19 @@ class ProfileView extends ConsumerWidget {
     final userAsync = ref.watch(currentUserProvider);
     final pkgAsync = ref.watch(currentPackageProvider);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 100),
-      physics: const BouncingScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 100),
+          physics: const BouncingScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: constraints.maxHeight - 120, // Adjust for top/bottom padding
+            ),
+            child: IntrinsicHeight(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -69,39 +76,65 @@ class ProfileView extends ConsumerWidget {
 
               return Column(
                 children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: AppColors.card,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.border),
-                      boxShadow: [
-                        BoxShadow(color: AppColors.neonGreen.withOpacity(0.03), blurRadius: 20),
-                        ...AppColors.cardShadow(),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildInfoRow(Icons.email_outlined, "EMAIL", user.email),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          child: Divider(color: AppColors.border.withOpacity(0.5)),
+                  Stack(
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: AppColors.card,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.border),
+                          boxShadow: [
+                            BoxShadow(color: AppColors.neonGreen.withOpacity(0.03), blurRadius: 20),
+                            ...AppColors.cardShadow(),
+                          ],
                         ),
-                        _buildInfoRow(Icons.confirmation_number_outlined, "REFERRAL", user.referralCode),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          child: Divider(color: AppColors.border.withOpacity(0.5)),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildInfoRow(Icons.email_outlined, "EMAIL", user.email),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              child: Divider(color: AppColors.border.withOpacity(0.5)),
+                            ),
+                            _buildInfoRow(Icons.confirmation_number_outlined, "REFERRAL", user.referralCode),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              child: Divider(color: AppColors.border.withOpacity(0.5)),
+                            ),
+                            _buildInfoRow(
+                              Icons.timer_outlined,
+                              "SUBSCRIPTION",
+                              isExpired ? "EXPIRED" : "$remainingDays Days Left",
+                              valueColor: isExpired ? Colors.redAccent : AppColors.neonGreen,
+                            ),
+                          ],
                         ),
-                        _buildInfoRow(
-                          Icons.timer_outlined,
-                          "SUBSCRIPTION",
-                          isExpired ? "EXPIRED" : "$remainingDays Days Left",
-                          valueColor: isExpired ? Colors.redAccent : AppColors.neonGreen,
+                      ),
+                      Positioned(
+                        left: 0,
+                        top: 32,
+                        child: Container(
+                          width: 3,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: AppColors.neonGreen,
+                            borderRadius: const BorderRadius.only(
+                              topRight: Radius.circular(4),
+                              bottomRight: Radius.circular(4),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.neonGreen,
+                                blurRadius: 8,
+                                spreadRadius: 1,
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 14),
 
@@ -109,44 +142,70 @@ class ProfileView extends ConsumerWidget {
                   pkgAsync.when(
                     data: (pkg) {
                       if (pkg == null) return const SizedBox();
-                      return Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: AppColors.card,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: AppColors.neonGreen.withOpacity(0.2)),
-                          boxShadow: [
-                            BoxShadow(color: AppColors.neonGreen.withOpacity(0.04), blurRadius: 24),
-                            ...AppColors.cardShadow(),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.orangeAccent.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: const Icon(Icons.star_rounded, color: Colors.orangeAccent, size: 14),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  "ACTIVE PACKAGE",
-                                  style: GoogleFonts.inter(color: AppColors.textWhite, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.5),
-                                ),
+                      return Stack(
+                        children: [
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              color: AppColors.card,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: AppColors.neonGreen.withOpacity(0.2)),
+                              boxShadow: [
+                                BoxShadow(color: AppColors.neonGreen.withOpacity(0.04), blurRadius: 24),
+                                ...AppColors.cardShadow(),
                               ],
                             ),
-                            const SizedBox(height: 12),
-                            _buildInfoRow(Icons.layers_outlined, "TIER", pkg.name),
-                            const SizedBox(height: 8),
-                            _buildInfoRow(Icons.payments_outlined, "PRICE", "Rp ${pkg.price.toStringAsFixed(0)}"),
-                          ],
-                        ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.orangeAccent.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: const Icon(Icons.star_rounded, color: Colors.orangeAccent, size: 14),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      "ACTIVE PACKAGE",
+                                      style: GoogleFonts.inter(color: AppColors.textWhite, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.5),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                _buildInfoRow(Icons.layers_outlined, "TIER", pkg.name),
+                                const SizedBox(height: 8),
+                                _buildInfoRow(Icons.payments_outlined, "PRICE", "Rp ${pkg.price.toStringAsFixed(0)}"),
+                              ],
+                            ),
+                          ),
+                          Positioned(
+                            left: 0,
+                            top: 32,
+                            child: Container(
+                              width: 3,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: AppColors.neonGreen,
+                                borderRadius: const BorderRadius.only(
+                                  topRight: Radius.circular(4),
+                                  bottomRight: Radius.circular(4),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.neonGreen,
+                                    blurRadius: 8,
+                                    spreadRadius: 1,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       );
                     },
                     loading: () => const Padding(padding: EdgeInsets.all(20), child: NeonLoading()),
@@ -159,6 +218,7 @@ class ProfileView extends ConsumerWidget {
             error: (e, _) => Center(child: Text("Error: $e", style: TextStyle(color: Colors.redAccent))),
           ),
           
+          const Spacer(),
           const SizedBox(height: 30),
           
           // Logout Button
@@ -194,6 +254,10 @@ class ProfileView extends ConsumerWidget {
           )
         ],
       ),
+            ),
+          ),
+        );
+      },
     );
   }
 

@@ -46,7 +46,11 @@ class LocalVpnService : VpnService() {
             .setOngoing(true)
             .build()
 
-        startForeground(1998, notification)
+        if (Build.VERSION.SDK_INT >= 34) { // Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+            startForeground(1998, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else {
+            startForeground(1998, notification)
+        }
     }
 
     private fun startVpn(mode: String) {

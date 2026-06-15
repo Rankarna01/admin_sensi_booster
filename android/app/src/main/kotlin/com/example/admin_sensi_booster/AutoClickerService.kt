@@ -84,35 +84,47 @@ class AutoClickerService : AccessibilityService() {
 
     fun burstClick(intervalMs: Long, points: List<FloatArray>, count: Int, onComplete: () -> Unit) {
         stopClicking()
-        if (points.isEmpty() || count <= 0) {
+        if (points.isEmpty() || count <= 0 || Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
             onComplete()
             return
         }
 
-        clickInterval = intervalMs.coerceAtLeast(10L)
         touchPoints = points
         currentPointIndex = 0
         isRunning = true
         isBursting = true
 
-        var clicksDone = 0
+        fireNextBurst(0, count, onComplete)
+    }
 
-        clickRunnable = object : Runnable {
-            override fun run() {
-                if (!isRunning || !isBursting) return
-                
-                performClick()
-                clicksDone++
-                
-                if (clicksDone >= count) {
-                    stopClicking()
-                    onComplete()
-                } else {
-                    handler.postDelayed(this, clickInterval)
-                }
-            }
+    private fun fireNextBurst(clicksDone: Int, total: Int, onComplete: () -> Unit) {
+        if (!isRunning || !isBursting || clicksDone >= total) {
+            stopClicking()
+            onComplete()
+            return
         }
-        handler.post(clickRunnable!!)
+
+        val point = touchPoints[currentPointIndex % touchPoints.size]
+        currentPointIndex++
+
+        val path = Path()
+        path.moveTo(point[0], point[1])
+
+        // 10ms stroke is extremely fast but valid
+        val stroke = GestureDescription.StrokeDescription(path, 0L, 10L)
+        val gesture = GestureDescription.Builder().addStroke(stroke).build()
+
+        dispatchGesture(gesture, object : GestureResultCallback() {
+            override fun onCompleted(gestureDescription: GestureDescription?) {
+                super.onCompleted(gestureDescription)
+                fireNextBurst(clicksDone + 1, total, onComplete)
+            }
+            override fun onCancelled(gestureDescription: GestureDescription?) {
+                super.onCancelled(gestureDescription)
+                // Even if cancelled, we try to push the next one to complete the burst
+                fireNextBurst(clicksDone + 1, total, onComplete)
+            }
+        }, null)
     }
 
     fun updateSettings(intervalMs: Long, points: List<FloatArray>) {
