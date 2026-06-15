@@ -32,8 +32,10 @@ class AutoClickerOverlayService : Service() {
     private var windowManager: WindowManager? = null
     private var edgeButton: View? = null
     private var panelLayout: LinearLayout? = null
+    private var triggerButton: View? = null
     private var edgeParams: WindowManager.LayoutParams? = null
     private var panelParams: WindowManager.LayoutParams? = null
+    private var triggerParams: WindowManager.LayoutParams? = null
     private val handler = Handler(Looper.getMainLooper())
     private var isPanelOpen = false
 
@@ -90,6 +92,7 @@ class AutoClickerOverlayService : Service() {
             registerReceiver(stopReceiver, IntentFilter(ACTION_STOP_OVERLAY))
         }
         setupEdgeButton()
+        setupTriggerButton()
         setupPanel()
         return START_NOT_STICKY
     }
@@ -97,8 +100,10 @@ class AutoClickerOverlayService : Service() {
     private fun cleanupAllViews() {
         exitMappingMode()
         try { windowManager?.removeView(edgeButton) } catch (_: Exception) {}
+        try { windowManager?.removeView(triggerButton) } catch (_: Exception) {}
         try { windowManager?.removeView(panelLayout) } catch (_: Exception) {}
         edgeButton = null
+        triggerButton = null
         panelLayout = null
         try { unregisterReceiver(stopReceiver) } catch (_: Exception) {}
     }
@@ -197,6 +202,118 @@ class AutoClickerOverlayService : Service() {
                     }
                     MotionEvent.ACTION_UP -> {
                         if (!isDrag) togglePanel()
+                        return true
+                    }
+                }
+                return false
+            }
+        })
+    }
+
+    // ═══════════════════════════════════════════
+    // TRIGGER BUTTON (Press & Hold to Spam)
+    // ═══════════════════════════════════════════
+
+    private fun setupTriggerButton() {
+        if (windowManager == null) windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        val density = resources.displayMetrics.density
+
+        val btnSize = (64 * density).toInt()
+        val btn = FrameLayout(this)
+        
+        val bg = GradientDrawable()
+        bg.shape = GradientDrawable.OVAL
+        bg.setColor(Color.parseColor("#88EF4444")) // Semi-transparent Red
+        bg.setStroke((2 * density).toInt(), Color.parseColor("#EF4444"))
+        btn.background = bg
+
+        val icon = ImageView(this)
+        icon.setImageResource(android.R.drawable.ic_media_play)
+        icon.setColorFilter(Color.WHITE)
+        val iconParams = FrameLayout.LayoutParams(
+            (32 * density).toInt(), (32 * density).toInt(),
+            Gravity.CENTER
+        )
+        btn.addView(icon, iconParams)
+
+        // Label below icon
+        val label = TextView(this)
+        label.text = "HOLD"
+        label.setTextColor(Color.WHITE)
+        label.textSize = 9f
+        label.setTypeface(null, android.graphics.Typeface.BOLD)
+        val labelParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+        ).apply { bottomMargin = (6 * density).toInt() }
+        btn.addView(label, labelParams)
+
+        triggerParams = WindowManager.LayoutParams(
+            btnSize, btnSize,
+            layoutType,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        )
+        triggerParams?.gravity = Gravity.TOP or Gravity.START
+        triggerParams?.x = (resources.displayMetrics.widthPixels * 0.2).toInt()
+        triggerParams?.y = (resources.displayMetrics.heightPixels * 0.5).toInt()
+
+        triggerButton = btn
+        setupTriggerDrag()
+        try { windowManager?.addView(btn, triggerParams) } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    private fun setupTriggerDrag() {
+        triggerButton?.setOnTouchListener(object : View.OnTouchListener {
+            private var initialX = 0
+            private var initialY = 0
+            private var initialTouchX = 0f
+            private var initialTouchY = 0f
+            private var isDrag = false
+
+            override fun onTouch(v: View, event: MotionEvent): Boolean {
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        initialX = triggerParams?.x ?: 0
+                        initialY = triggerParams?.y ?: 0
+                        initialTouchX = event.rawX
+                        initialTouchY = event.rawY
+                        isDrag = false
+
+                        // Start clicking immediately on touch
+                        val service = AutoClickerService.instance
+                        if (service != null && touchPoints.isNotEmpty()) {
+                            service.startClicking(intervalMs.toLong(), touchPoints)
+                        } else if (service == null) {
+                            Toast.makeText(this@AutoClickerOverlayService, "Enable Accessibility in Settings!", Toast.LENGTH_SHORT).show()
+                        }
+                        
+                        // Visual feedback (change to green)
+                        (triggerButton?.background as? GradientDrawable)?.setColor(Color.parseColor("#CC4ADE80"))
+                        return true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val dx = event.rawX - initialTouchX
+                        val dy = event.rawY - initialTouchY
+                        if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+                            if (!isDrag) {
+                                isDrag = true
+                                // If dragging, stop clicking so user can position it
+                                AutoClickerService.instance?.stopClicking()
+                            }
+                            triggerParams?.x = initialX + dx.toInt()
+                            triggerParams?.y = initialY + dy.toInt()
+                            try { windowManager?.updateViewLayout(triggerButton, triggerParams) } catch (_: Exception) {}
+                        }
+                        return true
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        // Stop clicking when released
+                        AutoClickerService.instance?.stopClicking()
+
+                        // Restore visual (red)
+                        (triggerButton?.background as? GradientDrawable)?.setColor(Color.parseColor("#88EF4444"))
                         return true
                     }
                 }
@@ -392,7 +509,9 @@ class AutoClickerOverlayService : Service() {
     private fun refreshPanel() {
         try { windowManager?.removeView(panelLayout) } catch (_: Exception) {}
         try { windowManager?.removeView(edgeButton) } catch (_: Exception) {}
+        try { windowManager?.removeView(triggerButton) } catch (_: Exception) {}
         setupEdgeButton()
+        setupTriggerButton()
         setupPanel()
         if (isPanelOpen) panelLayout?.visibility = View.VISIBLE
     }
@@ -405,9 +524,10 @@ class AutoClickerOverlayService : Service() {
         if (isMapping) return
         isMapping = true
 
-        // Hide panel and edge button
+        // Hide panel, edge button, and trigger button
         panelLayout?.visibility = View.GONE
         edgeButton?.visibility = View.GONE
+        triggerButton?.visibility = View.GONE
         isPanelOpen = false
 
         val density = resources.displayMetrics.density
@@ -602,6 +722,7 @@ class AutoClickerOverlayService : Service() {
         val cancelBtn = createToolbarButton("✕", "#64748B", "#FFFFFF", density) {
             exitMappingMode()
             edgeButton?.visibility = View.VISIBLE
+            triggerButton?.visibility = View.VISIBLE
         }
         mappingToolbar?.addView(cancelBtn)
 
@@ -672,8 +793,9 @@ class AutoClickerOverlayService : Service() {
 
         exitMappingMode()
 
-        // Show edge button and refresh panel with new point count
+        // Show edge and trigger buttons and refresh panel with new point count
         edgeButton?.visibility = View.VISIBLE
+        triggerButton?.visibility = View.VISIBLE
         refreshPanel()
     }
 
@@ -702,8 +824,9 @@ class AutoClickerOverlayService : Service() {
         super.onDestroy()
         exitMappingMode()
         try { windowManager?.removeView(edgeButton) } catch (_: Exception) {}
+        try { windowManager?.removeView(triggerButton) } catch (_: Exception) {}
         try { windowManager?.removeView(panelLayout) } catch (_: Exception) {}
-        edgeButton = null; panelLayout = null; windowManager = null
+        edgeButton = null; triggerButton = null; panelLayout = null; windowManager = null
         try { unregisterReceiver(stopReceiver) } catch (_: Exception) {}
     }
 }
