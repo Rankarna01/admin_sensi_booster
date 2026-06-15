@@ -143,12 +143,12 @@ class _GameCornerPanelState extends State<GameCornerPanel> with SingleTickerProv
               child: Column(
                 children: [
                   Text(
-                    "AXERON",
+                    "ROG THEME",
                     style: GoogleFonts.inter(color: AppColors.neonGreen, fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 3.0),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    "GAME CORNER",
+                    "MFW SENSI",
                     style: GoogleFonts.orbitron(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.5),
                   ),
                   const SizedBox(height: 12),

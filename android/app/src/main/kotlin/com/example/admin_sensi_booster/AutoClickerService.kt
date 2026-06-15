@@ -75,8 +75,44 @@ class AutoClickerService : AccessibilityService() {
 
     fun stopClicking() {
         isRunning = false
+        isBursting = false
         clickRunnable?.let { handler.removeCallbacks(it) }
         clickRunnable = null
+    }
+
+    private var isBursting = false
+
+    fun burstClick(intervalMs: Long, points: List<FloatArray>, count: Int, onComplete: () -> Unit) {
+        stopClicking()
+        if (points.isEmpty() || count <= 0) {
+            onComplete()
+            return
+        }
+
+        clickInterval = intervalMs.coerceAtLeast(10L)
+        touchPoints = points
+        currentPointIndex = 0
+        isRunning = true
+        isBursting = true
+
+        var clicksDone = 0
+
+        clickRunnable = object : Runnable {
+            override fun run() {
+                if (!isRunning || !isBursting) return
+                
+                performClick()
+                clicksDone++
+                
+                if (clicksDone >= count) {
+                    stopClicking()
+                    onComplete()
+                } else {
+                    handler.postDelayed(this, clickInterval)
+                }
+            }
+        }
+        handler.post(clickRunnable!!)
     }
 
     fun updateSettings(intervalMs: Long, points: List<FloatArray>) {

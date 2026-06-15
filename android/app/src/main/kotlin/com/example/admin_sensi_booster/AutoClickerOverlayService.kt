@@ -40,17 +40,17 @@ class AutoClickerOverlayService : Service() {
     private var isPanelOpen = false
 
     private var cps = 10
-    private var pointCount = 1
-    private var intervalMs = 100
-    private var touchPoints = mutableListOf<FloatArray>()
-
-    // ═══ Mapping Mode ═══
     private var isMapping = false
-    private val pointMarkers = mutableListOf<View>()
+
+    private val pointMarkers = mutableListOf<FrameLayout>()
     private val markerLayoutParams = mutableListOf<WindowManager.LayoutParams>()
     private var mappingToolbar: LinearLayout? = null
     private var mappingToolbarParams: WindowManager.LayoutParams? = null
     private var mappingCountLabel: TextView? = null
+
+    private var pointCount = 1
+    private var intervalMs = 100
+    private var touchPoints = mutableListOf<FloatArray>()
 
     private val layoutType: Int
         get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
@@ -74,8 +74,17 @@ class AutoClickerOverlayService : Service() {
         intervalMs = intent?.getIntExtra("interval", 100) ?: 100
 
         // Parse touch points from intent
-        val xList = intent?.getDoubleArrayExtra("xList")?.toList() ?: listOf(540.0)
-        val yList = intent?.getDoubleArrayExtra("yList")?.toList() ?: listOf(960.0)
+        val screenW = resources.displayMetrics.widthPixels
+        val screenH = resources.displayMetrics.heightPixels
+        var xList = intent?.getDoubleArrayExtra("xList")?.toList() ?: emptyList()
+        var yList = intent?.getDoubleArrayExtra("yList")?.toList() ?: emptyList()
+        
+        // If default from Flutter, change it to center-top to avoid being stuck at the bottom
+        if ((xList.size == 1 && xList[0] == 540.0 && yList.size == 1 && yList[0] == 960.0) || xList.isEmpty()) {
+            xList = listOf((screenW / 2).toDouble())
+            yList = listOf((screenH / 4).toDouble())
+        }
+        
         touchPoints = (0 until minOf(xList.size, yList.size)).map { i ->
             floatArrayOf(xList[i].toFloat(), yList[i].toFloat())
         }.toMutableList()
@@ -92,18 +101,34 @@ class AutoClickerOverlayService : Service() {
             registerReceiver(stopReceiver, IntentFilter(ACTION_STOP_OVERLAY))
         }
         setupEdgeButton()
-        setupTriggerButton()
         setupPanel()
+        
+        // Initialize existing points directly on screen
+        val density = resources.displayMetrics.density
+        val markerSize = (48 * density).toInt()
+        for (i in touchPoints.indices) {
+            addMarkerAtPixel(
+                touchPoints[i][0].toInt(),
+                touchPoints[i][1].toInt(),
+                markerSize,
+                density
+            )
+        }
+        
         return START_NOT_STICKY
     }
 
     private fun cleanupAllViews() {
         exitMappingMode()
+        exitMappingMode()
         try { windowManager?.removeView(edgeButton) } catch (_: Exception) {}
-        try { windowManager?.removeView(triggerButton) } catch (_: Exception) {}
         try { windowManager?.removeView(panelLayout) } catch (_: Exception) {}
+        for (marker in pointMarkers) {
+            try { windowManager?.removeView(marker) } catch (_: Exception) {}
+        }
+        pointMarkers.clear()
+        markerLayoutParams.clear()
         edgeButton = null
-        triggerButton = null
         panelLayout = null
         try { unregisterReceiver(stopReceiver) } catch (_: Exception) {}
     }
@@ -211,118 +236,6 @@ class AutoClickerOverlayService : Service() {
     }
 
     // ═══════════════════════════════════════════
-    // TRIGGER BUTTON (Press & Hold to Spam)
-    // ═══════════════════════════════════════════
-
-    private fun setupTriggerButton() {
-        if (windowManager == null) windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        val density = resources.displayMetrics.density
-
-        val btnSize = (64 * density).toInt()
-        val btn = FrameLayout(this)
-        
-        val bg = GradientDrawable()
-        bg.shape = GradientDrawable.OVAL
-        bg.setColor(Color.parseColor("#88EF4444")) // Semi-transparent Red
-        bg.setStroke((2 * density).toInt(), Color.parseColor("#EF4444"))
-        btn.background = bg
-
-        val icon = ImageView(this)
-        icon.setImageResource(android.R.drawable.ic_media_play)
-        icon.setColorFilter(Color.WHITE)
-        val iconParams = FrameLayout.LayoutParams(
-            (32 * density).toInt(), (32 * density).toInt(),
-            Gravity.CENTER
-        )
-        btn.addView(icon, iconParams)
-
-        // Label below icon
-        val label = TextView(this)
-        label.text = "HOLD"
-        label.setTextColor(Color.WHITE)
-        label.textSize = 9f
-        label.setTypeface(null, android.graphics.Typeface.BOLD)
-        val labelParams = FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-        ).apply { bottomMargin = (6 * density).toInt() }
-        btn.addView(label, labelParams)
-
-        triggerParams = WindowManager.LayoutParams(
-            btnSize, btnSize,
-            layoutType,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-            PixelFormat.TRANSLUCENT
-        )
-        triggerParams?.gravity = Gravity.TOP or Gravity.START
-        triggerParams?.x = (resources.displayMetrics.widthPixels * 0.2).toInt()
-        triggerParams?.y = (resources.displayMetrics.heightPixels * 0.5).toInt()
-
-        triggerButton = btn
-        setupTriggerDrag()
-        try { windowManager?.addView(btn, triggerParams) } catch (e: Exception) { e.printStackTrace() }
-    }
-
-    private fun setupTriggerDrag() {
-        triggerButton?.setOnTouchListener(object : View.OnTouchListener {
-            private var initialX = 0
-            private var initialY = 0
-            private var initialTouchX = 0f
-            private var initialTouchY = 0f
-            private var isDrag = false
-
-            override fun onTouch(v: View, event: MotionEvent): Boolean {
-                when (event.action) {
-                    MotionEvent.ACTION_DOWN -> {
-                        initialX = triggerParams?.x ?: 0
-                        initialY = triggerParams?.y ?: 0
-                        initialTouchX = event.rawX
-                        initialTouchY = event.rawY
-                        isDrag = false
-
-                        // Start clicking immediately on touch
-                        val service = AutoClickerService.instance
-                        if (service != null && touchPoints.isNotEmpty()) {
-                            service.startClicking(intervalMs.toLong(), touchPoints)
-                        } else if (service == null) {
-                            Toast.makeText(this@AutoClickerOverlayService, "Enable Accessibility in Settings!", Toast.LENGTH_SHORT).show()
-                        }
-                        
-                        // Visual feedback (change to green)
-                        (triggerButton?.background as? GradientDrawable)?.setColor(Color.parseColor("#CC4ADE80"))
-                        return true
-                    }
-                    MotionEvent.ACTION_MOVE -> {
-                        val dx = event.rawX - initialTouchX
-                        val dy = event.rawY - initialTouchY
-                        if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
-                            if (!isDrag) {
-                                isDrag = true
-                                // If dragging, stop clicking so user can position it
-                                AutoClickerService.instance?.stopClicking()
-                            }
-                            triggerParams?.x = initialX + dx.toInt()
-                            triggerParams?.y = initialY + dy.toInt()
-                            try { windowManager?.updateViewLayout(triggerButton, triggerParams) } catch (_: Exception) {}
-                        }
-                        return true
-                    }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                        // Stop clicking when released
-                        AutoClickerService.instance?.stopClicking()
-
-                        // Restore visual (red)
-                        (triggerButton?.background as? GradientDrawable)?.setColor(Color.parseColor("#88EF4444"))
-                        return true
-                    }
-                }
-                return false
-            }
-        })
-    }
-
-    // ═══════════════════════════════════════════
     // CONTROL PANEL
     // ═══════════════════════════════════════════
 
@@ -349,81 +262,7 @@ class AutoClickerOverlayService : Service() {
         }
         panelLayout?.addView(title)
 
-        // Status row
-        val statusRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, (8 * density).toInt(), 0, 0)
-        }
-        val statusDot = View(this).apply {
-            val s = (6 * density).toInt()
-            layoutParams = LinearLayout.LayoutParams(s, s).apply { marginEnd = (6 * density).toInt() }
-            val d = GradientDrawable(); d.shape = GradientDrawable.OVAL
-            val running = AutoClickerService.isRunning
-            d.setColor(if (running) Color.parseColor("#4ADE80") else Color.parseColor("#64748B"))
-            background = d
-        }
-        val statusText = TextView(this).apply {
-            text = if (AutoClickerService.isRunning) "RUNNING" else "STOPPED"
-            setTextColor(if (AutoClickerService.isRunning) Color.parseColor("#4ADE80") else Color.parseColor("#94A3B8"))
-            textSize = 10f; setTypeface(null, android.graphics.Typeface.BOLD)
-        }
-        statusRow.addView(statusDot); statusRow.addView(statusText)
-        panelLayout?.addView(statusRow)
-
-        // Info
-        val info = TextView(this).apply {
-            text = "$cps CPS \u2022 ${touchPoints.size} point(s)"
-            setTextColor(Color.parseColor("#94A3B8"))
-            textSize = 9f
-            setPadding(0, (4 * density).toInt(), 0, 0)
-        }
-        panelLayout?.addView(info)
-
-        // Start button
-        val startBtn = makeButton("START", android.R.drawable.ic_media_play, Color.parseColor("#4ADE80"), Color.parseColor("#0A0B0D")) {
-            val service = AutoClickerService.instance
-            if (service != null) {
-                if (touchPoints.isNotEmpty()) {
-                    service.startClicking(intervalMs.toLong(), touchPoints)
-                } else {
-                    service.startClicking(AutoClickerService.lastInterval, AutoClickerService.lastPoints)
-                }
-                statusText.text = "RUNNING"
-                statusText.setTextColor(Color.parseColor("#4ADE80"))
-                statusDot.background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.parseColor("#4ADE80")) }
-                Toast.makeText(this, "Auto Clicker Started!", Toast.LENGTH_SHORT).show()
-                refreshPanel()
-            } else {
-                statusText.text = "ERROR: ENABLE ACCESSIBILITY"
-                statusText.setTextColor(Color.parseColor("#EF4444"))
-                statusDot.background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.parseColor("#EF4444")) }
-                Toast.makeText(this, "Enable Accessibility Service first in Settings!", Toast.LENGTH_LONG).show()
-                
-                try {
-                    val intent = android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                    intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                    startActivity(intent)
-                    
-                    // Collapse panel when jumping to settings
-                    togglePanel()
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-        }
-        panelLayout?.addView(startBtn)
-
-        // Stop button
-        val stopBtn = makeButton("STOP", android.R.drawable.ic_media_pause, Color.parseColor("#EF4444"), Color.parseColor("#FFFFFF")) {
-            AutoClickerService.instance?.stopClicking()
-            statusText.text = "STOPPED"
-            statusText.setTextColor(Color.parseColor("#94A3B8"))
-            statusDot.background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.parseColor("#64748B")) }
-            Toast.makeText(this, "Auto Clicker Stopped!", Toast.LENGTH_SHORT).show()
-            refreshPanel()
-        }
-        panelLayout?.addView(stopBtn)
+        // We removed the START and STOP buttons here so the user only relies on the HOLD trigger.
 
         // ═══ MAP POINTS button ═══
         val mapBtn = makeButton("MAP POINTS", android.R.drawable.ic_dialog_map, Color.parseColor("#3B82F6"), Color.parseColor("#FFFFFF")) {
@@ -431,11 +270,17 @@ class AutoClickerOverlayService : Service() {
         }
         panelLayout?.addView(mapBtn)
 
-        // Close overlay button
-        val closeBtn = makeButton("CLOSE PANEL", android.R.drawable.ic_menu_close_clear_cancel, Color.parseColor("#64748B"), Color.parseColor("#FFFFFF")) {
-            stopSelf()
+        // Hide modal button
+        val closeBtn = makeButton("HIDE MODAL", android.R.drawable.ic_menu_close_clear_cancel, Color.parseColor("#64748B"), Color.parseColor("#FFFFFF")) {
+            togglePanel()
         }
         panelLayout?.addView(closeBtn)
+
+        // Turn Off Auto Clicker entirely
+        val turnOffBtn = makeButton("TURN OFF", android.R.drawable.ic_delete, Color.parseColor("#EF4444"), Color.parseColor("#FFFFFF")) {
+            stopSelf()
+        }
+        panelLayout?.addView(turnOffBtn)
 
         panelParams = WindowManager.LayoutParams(
             (200 * density).toInt(),
@@ -508,10 +353,7 @@ class AutoClickerOverlayService : Service() {
 
     private fun refreshPanel() {
         try { windowManager?.removeView(panelLayout) } catch (_: Exception) {}
-        try { windowManager?.removeView(edgeButton) } catch (_: Exception) {}
-        try { windowManager?.removeView(triggerButton) } catch (_: Exception) {}
-        setupEdgeButton()
-        setupTriggerButton()
+        // DO NOT recreate edgeButton and triggerButton here, otherwise their positions reset!
         setupPanel()
         if (isPanelOpen) panelLayout?.visibility = View.VISIBLE
     }
@@ -524,24 +366,12 @@ class AutoClickerOverlayService : Service() {
         if (isMapping) return
         isMapping = true
 
-        // Hide panel, edge button, and trigger button
+        // Hide panel and edge button
         panelLayout?.visibility = View.GONE
         edgeButton?.visibility = View.GONE
-        triggerButton?.visibility = View.GONE
         isPanelOpen = false
 
         val density = resources.displayMetrics.density
-        val markerSize = (48 * density).toInt()
-
-        // Create draggable markers for each existing touch point
-        for (i in touchPoints.indices) {
-            addMarkerAtPixel(
-                touchPoints[i][0].toInt(),
-                touchPoints[i][1].toInt(),
-                markerSize,
-                density
-            )
-        }
 
         // Show the mapping toolbar at bottom
         showMappingToolbar(density)
@@ -639,8 +469,41 @@ class AutoClickerOverlayService : Service() {
             private var initialY = 0
             private var initialTouchX = 0f
             private var initialTouchY = 0f
+            private var isDrag = false
 
             override fun onTouch(v: View, event: MotionEvent): Boolean {
+                if (!isMapping) {
+                    // During gameplay, tapping the marker triggers burst fire
+                    when (event.action) {
+                        MotionEvent.ACTION_DOWN -> {
+                            // Trigger burst
+                            val service = AutoClickerService.instance
+                            if (service != null && touchPoints.isNotEmpty()) {
+                                // Make marker red and untouchable to let clicks pass through
+                                val inner = (v as? FrameLayout)?.getChildAt(1)
+                                (inner?.background as? GradientDrawable)?.setColor(Color.parseColor("#EEF43F5E")) // Red
+                                
+                                params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                                try { windowManager?.updateViewLayout(v, params) } catch (_: Exception) {}
+
+                                service.burstClick(intervalMs.toLong(), listOf(touchPoints[index]), 20) {
+                                    // On complete, restore color and touchability
+                                    Handler(Looper.getMainLooper()).post {
+                                        (inner?.background as? GradientDrawable)?.setColor(Color.parseColor("#AA1A3A2A")) // Green
+                                        params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+                                        try { windowManager?.updateViewLayout(v, params) } catch (_: Exception) {}
+                                    }
+                                }
+                            } else if (service == null) {
+                                Toast.makeText(this@AutoClickerOverlayService, "Enable Accessibility in Settings!", Toast.LENGTH_SHORT).show()
+                            }
+                            return true
+                        }
+                    }
+                    return false
+                }
+
+                // During mapping mode, it drags
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {
                         initialX = params.x
@@ -793,9 +656,8 @@ class AutoClickerOverlayService : Service() {
 
         exitMappingMode()
 
-        // Show edge and trigger buttons and refresh panel with new point count
+        // Show edge button and refresh panel with new point count
         edgeButton?.visibility = View.VISIBLE
-        triggerButton?.visibility = View.VISIBLE
         refreshPanel()
     }
 
@@ -803,14 +665,7 @@ class AutoClickerOverlayService : Service() {
         if (!isMapping) return
         isMapping = false
 
-        // Remove all marker views
-        for (marker in pointMarkers) {
-            try { windowManager?.removeView(marker) } catch (_: Exception) {}
-        }
-        pointMarkers.clear()
-        markerLayoutParams.clear()
-
-        // Remove toolbar
+        // Remove toolbar ONLY. Do NOT remove markers, they act as triggers!
         try { windowManager?.removeView(mappingToolbar) } catch (_: Exception) {}
         mappingToolbar = null
         mappingCountLabel = null
