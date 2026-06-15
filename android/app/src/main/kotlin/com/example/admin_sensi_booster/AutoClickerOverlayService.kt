@@ -41,6 +41,7 @@ class AutoClickerOverlayService : Service() {
 
     private var cps = 10
     private var isMapping = false
+    private var markerOpacity = 1.0f
 
     private val pointMarkers = mutableListOf<FrameLayout>()
     private val markerLayoutParams = mutableListOf<WindowManager.LayoutParams>()
@@ -73,21 +74,20 @@ class AutoClickerOverlayService : Service() {
         pointCount = intent?.getIntExtra("pointCount", 1) ?: 1
         intervalMs = intent?.getIntExtra("interval", 100) ?: 100
 
-        // Parse touch points from intent
-        val screenW = resources.displayMetrics.widthPixels
-        val screenH = resources.displayMetrics.heightPixels
         var xList = intent?.getDoubleArrayExtra("xList")?.toList() ?: emptyList()
         var yList = intent?.getDoubleArrayExtra("yList")?.toList() ?: emptyList()
         
-        // If default from Flutter, change it to center-top to avoid being stuck at the bottom
-        if ((xList.size == 1 && xList[0] == 540.0 && yList.size == 1 && yList[0] == 960.0) || xList.isEmpty()) {
-            xList = listOf((screenW / 2).toDouble())
-            yList = listOf((screenH / 4).toDouble())
+        // If default from Flutter, change it to empty so it doesn't show initially
+        if (xList.size == 1 && xList[0] == 540.0 && yList.size == 1 && yList[0] == 960.0) {
+            xList = emptyList()
+            yList = emptyList()
         }
         
-        touchPoints = (0 until minOf(xList.size, yList.size)).map { i ->
-            floatArrayOf(xList[i].toFloat(), yList[i].toFloat())
-        }.toMutableList()
+        touchPoints.clear()
+        for (i in 0 until minOf(xList.size, yList.size)) {
+            touchPoints.add(floatArrayOf(xList[i].toFloat(), yList[i].toFloat()))
+        }
+        pointCount = touchPoints.size
 
         createNotification()
 
@@ -100,6 +100,9 @@ class AutoClickerOverlayService : Service() {
             @Suppress("UnspecifiedRegisterReceiverFlag")
             registerReceiver(stopReceiver, IntentFilter(ACTION_STOP_OVERLAY))
         }
+
+        if (windowManager == null) windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        
         setupEdgeButton()
         setupPanel()
         
@@ -264,6 +267,32 @@ class AutoClickerOverlayService : Service() {
 
         // We removed the START and STOP buttons here so the user only relies on the HOLD trigger.
 
+        // Opacity slider for Map Points (Key Frames)
+        val opacityLabel = TextView(this).apply {
+            text = "KEY FRAME OPACITY"
+            setTextColor(Color.parseColor("#94A3B8"))
+            textSize = 9f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setPadding((4 * density).toInt(), (12 * density).toInt(), 0, (4 * density).toInt())
+        }
+        panelLayout?.addView(opacityLabel)
+
+        val opacitySlider = android.widget.SeekBar(this).apply {
+            max = 100
+            progress = (markerOpacity * 100).toInt()
+            setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
+                    markerOpacity = (progress / 100f).coerceAtLeast(0.1f) // Prevent fully invisible
+                    for (marker in pointMarkers) {
+                        marker.alpha = markerOpacity
+                    }
+                }
+                override fun onStartTrackingTouch(seekBar: android.widget.SeekBar?) {}
+                override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {}
+            })
+        }
+        panelLayout?.addView(opacitySlider)
+
         // ═══ MAP POINTS button ═══
         val mapBtn = makeButton("MAP POINTS", android.R.drawable.ic_dialog_map, Color.parseColor("#3B82F6"), Color.parseColor("#FFFFFF")) {
             enterMappingMode()
@@ -399,6 +428,7 @@ class AutoClickerOverlayService : Service() {
 
     private fun createMarkerView(index: Int, density: Float): FrameLayout {
         val frame = FrameLayout(this)
+        frame.alpha = markerOpacity
 
         // Outer glow ring
         val outerRing = View(this).apply {
@@ -677,10 +707,22 @@ class AutoClickerOverlayService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        AutoClickerService.instance?.stopClicking()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            @Suppress("DEPRECATION")
+            stopForeground(true)
+        }
         exitMappingMode()
         try { windowManager?.removeView(edgeButton) } catch (_: Exception) {}
         try { windowManager?.removeView(triggerButton) } catch (_: Exception) {}
         try { windowManager?.removeView(panelLayout) } catch (_: Exception) {}
+        for (marker in pointMarkers) {
+            try { windowManager?.removeView(marker) } catch (_: Exception) {}
+        }
+        pointMarkers.clear()
+        markerLayoutParams.clear()
         edgeButton = null; triggerButton = null; panelLayout = null; windowManager = null
         try { unregisterReceiver(stopReceiver) } catch (_: Exception) {}
     }
