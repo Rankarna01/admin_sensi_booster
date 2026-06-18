@@ -21,9 +21,50 @@ class MainActivity : FlutterActivity() {
     private val OVERLAY_REQUEST_CODE = 0x10
     private var pendingMode = "Normal"
     private var overlayChannel: MethodChannel? = null
+    private val SHIZUKU_CHANNEL = "com.mfw.sensi_booster/shizuku"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        
+        // Shizuku Channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SHIZUKU_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "checkPermission" -> {
+                    if (rikka.shizuku.Shizuku.pingBinder()) {
+                        result.success(rikka.shizuku.Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED)
+                    } else {
+                        result.success(false)
+                    }
+                }
+                "requestPermission" -> {
+                    if (rikka.shizuku.Shizuku.pingBinder()) {
+                        if (rikka.shizuku.Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
+                            result.success(true)
+                        } else {
+                            rikka.shizuku.Shizuku.requestPermission(100)
+                            result.success(false)
+                        }
+                    } else {
+                        result.success(false)
+                    }
+                }
+                "runCommand" -> {
+                    val cmd = call.argument<String>("command")
+                    if (cmd != null && rikka.shizuku.Shizuku.pingBinder() && rikka.shizuku.Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
+                        try {
+                            val process = rikka.shizuku.Shizuku.newProcess(arrayOf("sh", "-c", cmd), null, null)
+                            process.waitFor()
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("SHIZUKU_ERR", e.message, null)
+                        }
+                    } else {
+                        result.success(false)
+                    }
+                }
+                else -> result.notImplemented()
+            }
+        }
         
         // VPN Channel
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, VPN_CHANNEL).setMethodCallHandler { call, result ->

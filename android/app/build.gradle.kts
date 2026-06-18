@@ -60,3 +60,8 @@ android {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    implementation("dev.rikka.shizuku:api:13.1.0")
+    implementation("dev.rikka.shizuku:provider:13.1.0")
+}

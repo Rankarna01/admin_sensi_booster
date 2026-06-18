@@ -1,14 +1,16 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:installed_apps/app_info.dart';
+import 'package:installed_apps/installed_apps.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_colors.dart';
 import '../../providers/client_provider.dart';
-import '../widgets/feature_card.dart';
-import '../feature/game_launcher_view.dart';
 import '../feature/smart_touch_dashboard.dart' as import_dashboard;
-import '../widgets/neon_loading.dart';
+import '../feature/game_launcher_view.dart' as import_launcher;
 
 class HomeView extends ConsumerStatefulWidget {
   const HomeView({super.key});
@@ -18,25 +20,12 @@ class HomeView extends ConsumerStatefulWidget {
 }
 
 class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderStateMixin {
-  final Map<String, bool> _activeFeatures = {};
-  bool _isLoading = false;
-
-  String _latencyMode = "Normal";
-  bool _pingOverlay = false;
-  bool _wifiBoost = false;
-  bool _smartRoute = false;
-
-  double _dpiValue = 480;
-  double _resScale = 100;
-  double _renderScale = 100;
-  int _refreshRate = 60;
-  bool _displayOpt = true;
-
-  final TextEditingController _dpiController = TextEditingController(text: "480");
-  final TextEditingController _resController = TextEditingController(text: "100");
-
-  static const MethodChannel _vpnChannel = MethodChannel('com.mfw.sensi_booster/vpn');
   static const MethodChannel _overlayChannel = MethodChannel('com.mfw.sensi_booster/overlay');
+  
+  File? _customPhoto;
+  List<AppInfo> _allApps = [];
+  List<String> _addedPackageNames = [];
+  bool _isLoadingApps = true;
 
   @override
   void initState() {
@@ -47,13 +36,53 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
         _showSmartTouchDashboard();
       }
     });
+    _loadCustomPhoto();
+    _loadApps();
   }
 
-  @override
-  void dispose() {
-    _dpiController.dispose();
-    _resController.dispose();
-    super.dispose();
+  Future<void> _loadApps() async {
+    final prefs = await SharedPreferences.getInstance();
+    final packages = prefs.getStringList('added_games') ?? [];
+    
+    try {
+      final apps = await InstalledApps.getInstalledApps(excludeSystemApps: true, withIcon: true);
+      setState(() {
+        _allApps = apps;
+        _addedPackageNames = packages;
+        _isLoadingApps = false;
+      });
+    } catch (e) {
+      debugPrint("Error loading apps: $e");
+      setState(() {
+        _isLoadingApps = false;
+      });
+    }
+  }
+
+  Future<void> _loadCustomPhoto() async {
+    final prefs = await SharedPreferences.getInstance();
+    final path = prefs.getString('custom_photo_path');
+    if (path != null && File(path).existsSync()) {
+      setState(() {
+        _customPhoto = File(path);
+      });
+    }
+  }
+
+  Future<void> _pickPhoto() async {
+    final picker = ImagePicker();
+    try {
+      final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+      if (pickedFile != null) {
+        setState(() {
+          _customPhoto = File(pickedFile.path);
+        });
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('custom_photo_path', pickedFile.path);
+      }
+    } catch (e) {
+      debugPrint("Gagal memilih foto: $e");
+    }
   }
 
   Future<void> _checkInitialSmartTouchIntent() async {
@@ -69,65 +98,89 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
     import_dashboard.SmartTouchDashboard.show(context);
   }
 
-  Future<void> _handleRogMonitorToggle(bool isActive) async {
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 1500));
-    setState(() {
-      _isLoading = false;
-      _activeFeatures['rog_monitor'] = isActive;
-    });
-    if (isActive) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const GameLauncherView()),
-      ).then((_) {
-        if (mounted) setState(() => _activeFeatures['rog_monitor'] = false);
-      });
-    }
-  }
-
-  Future<void> _handleGenericToggle(String key, bool isActive) async {
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 1200));
-    setState(() {
-      _isLoading = false;
-      _activeFeatures[key] = isActive;
-    });
-  }
-
-  void _applySpecificLatencyMode(String mode) async {
-    try {
-      await _vpnChannel.invokeMethod('startVpn', {'mode': mode});
-      if (mounted) {
-        String extra = _wifiBoost ? " + WiFi Boost" : "";
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Mode VPN $mode aktif$extra"), backgroundColor: AppColors.neonGreenDark),
+  void _showKelolaGamesBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return DraggableScrollableSheet(
+              initialChildSize: 0.6,
+              minChildSize: 0.4,
+              maxChildSize: 0.9,
+              builder: (context, scrollController) {
+                return Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.background,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 12),
+                      Container(
+                        width: 40, height: 5,
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text("Kelola Game", style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: _isLoadingApps 
+                            ? const Center(child: CircularProgressIndicator(color: AppColors.neonGreen))
+                            : ListView.builder(
+                                controller: scrollController,
+                                itemCount: _allApps.length,
+                                itemBuilder: (context, index) {
+                                  final app = _allApps[index];
+                                  final isAdded = _addedPackageNames.contains(app.packageName);
+                                  
+                                  return ListTile(
+                                    leading: app.icon != null 
+                                        ? Image.memory(app.icon!, width: 40, height: 40) 
+                                        : const Icon(Icons.android, color: AppColors.neonGreen),
+                                    title: Text(app.name ?? "Unknown", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600)),
+                                    subtitle: Text(app.packageName ?? "", style: GoogleFonts.inter(color: Colors.white54, fontSize: 10)),
+                                    trailing: GestureDetector(
+                                      onTap: () async {
+                                        final prefs = await SharedPreferences.getInstance();
+                                        if (isAdded) {
+                                          _addedPackageNames.remove(app.packageName);
+                                        } else {
+                                          _addedPackageNames.add(app.packageName!);
+                                        }
+                                        await prefs.setStringList('added_games', _addedPackageNames);
+                                        setState(() {}); 
+                                        setModalState(() {}); 
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: isAdded ? Colors.redAccent.withOpacity(0.1) : AppColors.neonGreen.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(20),
+                                          border: Border.all(color: isAdded ? Colors.redAccent.withOpacity(0.5) : AppColors.neonGreen.withOpacity(0.5)),
+                                        ),
+                                        child: Text(isAdded ? "Hapus" : "Tambah", style: GoogleFonts.inter(color: isAdded ? Colors.redAccent : AppColors.neonGreen, fontSize: 11, fontWeight: FontWeight.w600)),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
         );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Gagal: $e"), backgroundColor: Colors.redAccent),
-        );
-      }
-    }
-  }
-
-  Future<void> _executeLatencyMode(bool isActive) async {
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 1500));
-    setState(() {
-      _isLoading = false;
-      _activeFeatures['latency_mode'] = isActive;
-    });
-
-    if (!isActive) { await _vpnChannel.invokeMethod('stopVpn'); return; }
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Mengaktifkan VPN...", style: GoogleFonts.inter(fontWeight: FontWeight.w500)), backgroundColor: AppColors.neonGreen.withOpacity(0.8)),
-      );
-    }
-    _applySpecificLatencyMode(_latencyMode);
+      },
+    );
   }
 
   @override
@@ -138,11 +191,9 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
     // Check if the current package is a VIP package (either it costs money or the name contains 'vip')
     final isVip = pkgAsync.value != null && ((pkgAsync.value!.price > 0) || (pkgAsync.value!.name.toLowerCase().contains('vip')));
 
-    return PageLoadingOverlay(
-      isLoading: _isLoading,
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: SingleChildScrollView(
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: SingleChildScrollView(
         padding: const EdgeInsets.only(left: 20, right: 20, top: 36, bottom: 100),
         physics: const BouncingScrollPhysics(),
         child: Column(
@@ -152,33 +203,19 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Image.asset(
-                          'assets/images/logo.png',
-                          width: 48, 
-                          height: 48,
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) => const Icon(Icons.shield, color: AppColors.neonGreen, size: 24),
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          "MFW APPS",
-                          style: GoogleFonts.orbitron(color: AppColors.neonGreen, fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: 1.5),
-                        ),
-                      ],
+                    Image.asset(
+                      'assets/images/logo.png',
+                      width: 42, 
+                      height: 42,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.shield, color: AppColors.neonGreen, size: 24),
                     ),
-                    const SizedBox(height: 4),
-                    userAsync.when(
-                      data: (user) => Text(
-                        "Welcome, ${user?.email?.split('@').first ?? 'Player'}",
-                        style: GoogleFonts.inter(color: AppColors.textWhite, fontSize: 14, fontWeight: FontWeight.w500),
-                      ),
-                      loading: () => const Text("...", style: TextStyle(color: AppColors.textMuted, fontSize: 14)),
-                      error: (_, __) => const Text("Welcome", style: TextStyle(color: AppColors.textWhite, fontSize: 14)),
+                    const SizedBox(width: 12),
+                    Text(
+                      "MFW APPS",
+                      style: GoogleFonts.orbitron(color: AppColors.neonGreen, fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: 1.5),
                     ),
                   ],
                 ),
@@ -196,272 +233,324 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
                 )
               ],
             ),
+            const SizedBox(height: 20),
+            
+            // Welcome Section
+            userAsync.when(
+              data: (user) => Text(
+                "Welcome, ${user?.email.split('@').first ?? 'randy'}",
+                style: GoogleFonts.inter(color: AppColors.textWhite, fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+              loading: () => const Text("Welcome, ...", style: TextStyle(color: AppColors.textWhite, fontSize: 16, fontWeight: FontWeight.w700)),
+              error: (_, __) => const Text("Welcome, randy", style: TextStyle(color: AppColors.textWhite, fontSize: 16, fontWeight: FontWeight.w700)),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Container(width: 2, height: 14, color: AppColors.neonGreen),
+                const SizedBox(width: 8),
+                Text(
+                  "Optimize your gaming experience",
+                  style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 13, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
             const SizedBox(height: 24),
 
-            pkgAsync.when(
-              data: (pkg) {
-                final features = pkg?.features ?? {};
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+            // Custom Photo Banner
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.surface,
+                    AppColors.neonGreen.withOpacity(0.15),
+                  ],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                border: Border.all(color: AppColors.neonGreen.withOpacity(0.3), width: 1),
+                boxShadow: [
+                  BoxShadow(color: AppColors.neonGreen.withOpacity(0.05), blurRadius: 20, spreadRadius: 2),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 5,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(width: 2, height: 14, color: AppColors.neonGreen),
-                        const SizedBox(width: 8),
+                        RichText(
+                          text: TextSpan(
+                            children: [
+                              TextSpan(
+                                text: "CUSTOM\n",
+                                style: GoogleFonts.inter(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900, height: 1.1),
+                              ),
+                              TextSpan(
+                                text: "PHOTO",
+                                style: GoogleFonts.inter(color: AppColors.neonGreen, fontSize: 24, fontWeight: FontWeight.w900, height: 1.1),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                         Text(
-                          "GAME ENHANCERS",
-                          style: GoogleFonts.inter(color: AppColors.textWhite, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.5),
+                          "Unggah foto favoritmu\ndan tampilkan di sini!",
+                          style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 12, height: 1.4),
+                        ),
+                        const SizedBox(height: 16),
+                        GestureDetector(
+                          onTap: _pickPhoto,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: AppColors.neonGreen.withOpacity(0.5)),
+                              borderRadius: BorderRadius.circular(8),
+                              color: AppColors.neonGreen.withOpacity(0.1),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.upload_rounded, color: AppColors.neonGreen, size: 16),
+                                const SizedBox(width: 6),
+                                Text(
+                                  "PILIH FOTO",
+                                  style: GoogleFonts.inter(color: AppColors.neonGreen, fontSize: 11, fontWeight: FontWeight.w700),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                  ),
+                  Expanded(
+                    flex: 4,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Stacked photo cards placeholder
+                        Transform.translate(
+                          offset: const Offset(-10, -10),
+                          child: Transform.rotate(
+                            angle: -0.1,
+                            child: Container(
+                              width: 100, height: 90,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1E2126),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.white10),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Container(
+                          width: 110, height: 100,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF262A33),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white12),
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 10, offset: const Offset(0, 5))],
+                            image: _customPhoto != null
+                                ? DecorationImage(
+                                    image: FileImage(_customPhoto!),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
+                          ),
+                          child: _customPhoto == null
+                              ? const Center(
+                                  child: Icon(Icons.landscape_rounded, color: AppColors.neonGreen, size: 48),
+                                )
+                              : null,
+                        ),
+                        Positioned(
+                          bottom: -5, right: -5,
+                          child: GestureDetector(
+                            onTap: _pickPhoto,
+                            child: Container(
+                              width: 32, height: 32,
+                              decoration: const BoxDecoration(
+                                color: AppColors.neonGreen,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.add, color: Colors.black, size: 20),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
 
-                    FeatureCard(
-                      title: "Monitoring ROG",
-                      description: "FPS, Suhu CPU, RAM real-time monitoring.",
-                      iconWidget: const FaIcon(FontAwesomeIcons.microchip),
-                      isActive: _activeFeatures['rog_monitor'] ?? false,
-                      isAllowed: features['rog_monitor'] == true,
-                      onChanged: _handleRogMonitorToggle,
-                    ),
-                    FeatureCard(
-                      title: "Game Lab Sensi",
-                      description: "Sensitivitas layar khusus game.",
-                      iconWidget: const FaIcon(FontAwesomeIcons.crosshairs),
-                      isActive: _activeFeatures['game_lab_sensi'] ?? false,
-                      isAllowed: features['game_lab_sensi'] == true,
-                      onChanged: (val) => _handleGenericToggle('game_lab_sensi', val),
-                    ),
-                    FeatureCard(
-                      title: "CPU & RAM Tweaks",
-                      description: "CPU Governor, Core Priority, Memory Cache.",
-                      iconWidget: const FaIcon(FontAwesomeIcons.memory),
-                      isActive: _activeFeatures['cpu_tweak'] ?? false,
-                      isAllowed: features['cpu_tweak'] == true,
-                      onChanged: (val) => _handleGenericToggle('cpu_tweak', val),
-                    ),
-                    FeatureCard(
-                      title: "Latency Mode",
-                      description: "Stabilisasi ping & optimasi jaringan.",
-                      iconWidget: const FaIcon(FontAwesomeIcons.wifi),
-                      isActive: _activeFeatures['latency_mode'] ?? false,
-                      isAllowed: features['latency_mode'] == true,
-                      onChanged: (val) => _executeLatencyMode(val),
-                      extraContent: _buildLatencySettings(),
-                    ),
-                    FeatureCard(
-                      title: "Ping Overlay",
-                      description: "Widget ping real-time di layar.",
-                      iconWidget: const FaIcon(FontAwesomeIcons.tachometerAlt),
-                      isActive: _activeFeatures['speed_test'] ?? false,
-                      isAllowed: features['speed_test'] == true,
-                      onChanged: (val) => _handleGenericToggle('speed_test', val),
-                    ),
-                    FeatureCard(
-                      title: "Smart Switch DPI",
-                      description: "Resolusi & DPI Android untuk grafis optimal.",
-                      iconWidget: const FaIcon(FontAwesomeIcons.mobileAlt),
-                      isActive: _activeFeatures['set_dpi'] ?? false,
-                      isAllowed: features['set_dpi'] == true,
-                      onChanged: (val) => _handleGenericToggle('set_dpi', val),
-                      extraContent: _buildDpiSettings(),
-                    ),
-                  ],
+            // My Games Section
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "My Games",
+                  style: GoogleFonts.inter(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+                GestureDetector(
+                  onTap: _showKelolaGamesBottomSheet,
+                  child: Row(
+                    children: [
+                      Text(
+                        "Kelola",
+                        style: GoogleFonts.inter(color: AppColors.neonGreen, fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.neonGreen, size: 12),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Games List
+            if (_isLoadingApps)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Center(child: CircularProgressIndicator(color: AppColors.neonGreen)),
+              )
+            else if (_addedPackageNames.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Center(
+                  child: Text("Belum ada game yang ditambahkan.", style: GoogleFonts.inter(color: Colors.white54)),
+                ),
+              )
+            else
+              ..._addedPackageNames.map((pkgName) {
+                final appIndex = _allApps.indexWhere((a) => a.packageName == pkgName);
+                if (appIndex == -1) return const SizedBox();
+                return _buildGameItem(app: _allApps[appIndex]);
+              }),
+            
+            // ROG Button
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const import_launcher.GameLauncherView()),
                 );
               },
-              loading: () => const NeonLoading(message: "Memuat fitur..."),
-              error: (e, _) => Center(child: Text("Error: $e", style: TextStyle(color: Colors.redAccent))),
+              child: _buildSpecialItem(
+                title: "Monitoring ROG",
+                iconWidget: const Icon(Icons.laptop_chromebook, color: Colors.redAccent, size: 24), // Placeholder icon
+              ),
+            ),
+            
+            // RedMagic Button
+            GestureDetector(
+              onTap: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    backgroundColor: AppColors.surface,
+                    title: Text("Info", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w700)),
+                    content: Text("Fitur RedMagic sedang dalam pengembangan.", style: GoogleFonts.inter(color: AppColors.textMuted)),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text("OK", style: GoogleFonts.inter(color: AppColors.neonGreen, fontWeight: FontWeight.w600)),
+                      ),
+                    ],
+                  ),
+                );
+              },
+              child: _buildSpecialItem(
+                title: "RedMagic",
+                iconWidget: const Icon(Icons.sports_esports, color: Colors.redAccent, size: 24), // Placeholder icon
+              ),
             ),
           ],
         ),
       ),
-    ),
     );
   }
 
-  Widget _buildLatencySettings() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text("Network Mode", style: GoogleFonts.inter(color: AppColors.textWhite, fontSize: 11, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(child: _buildLatencyButton("Normal", "Stabil")),
-            const SizedBox(width: 6),
-            Expanded(child: _buildLatencyButton("Low", "Cepat")),
-            const SizedBox(width: 6),
-            Expanded(child: _buildLatencyButton("Ultra", "Max")),
-          ],
-        ),
-        const SizedBox(height: 14),
-        _buildToggleSetting("Ping Overlay", "Tampilkan ping di layar", _pingOverlay, (val) => setState(() => _pingOverlay = val)),
-        _buildToggleSetting("WiFi Boost", "Prioritas jaringan WiFi", _wifiBoost, (val) => setState(() => _wifiBoost = val)),
-        _buildToggleSetting("Smart Route", "DNS Fast otomatis", _smartRoute, (val) => setState(() => _smartRoute = val)),
-      ],
-    );
-  }
-
-  Widget _buildLatencyButton(String mode, String sub) {
-    bool isSelected = _latencyMode == mode;
-    return GestureDetector(
-      onTap: () {
-        setState(() => _latencyMode = mode);
-        if (_activeFeatures['latency_mode'] == true) _applySpecificLatencyMode(mode);
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.neonGreen.withOpacity(0.12) : AppColors.surface,
-          border: Border.all(color: isSelected ? AppColors.neonGreen.withOpacity(0.5) : AppColors.border),
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: isSelected ? AppColors.glowGreen(blur: 12, opacity: 0.08) : null,
-        ),
-        child: Column(
-          children: [
-            Text(mode, style: GoogleFonts.inter(color: isSelected ? AppColors.neonGreen : AppColors.textWhite, fontSize: 11, fontWeight: FontWeight.w600)),
-            Text(sub, style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 9)),
-          ],
-        ),
+  Widget _buildGameItem({required AppInfo app}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
       ),
-    );
-  }
-
-  Widget _buildToggleSetting(String title, String subtitle, bool value, ValueChanged<bool> onChanged) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: app.icon != null 
+                ? Image.memory(app.icon!, width: 28, height: 28) 
+                : const Icon(Icons.videogame_asset, color: AppColors.neonGreen, size: 28),
+          ),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: GoogleFonts.inter(color: AppColors.textWhite, fontSize: 11, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 2),
-                Text(subtitle, style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 10)),
+                Text(app.name ?? "Unknown", style: GoogleFonts.inter(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                Text(app.packageName ?? "", style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 12)),
               ],
             ),
           ),
-          SciFiSwitch(value: value, onChanged: onChanged),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.neonGreen.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.neonGreen.withOpacity(0.5)),
+            ),
+            child: Text("Added", style: GoogleFonts.inter(color: AppColors.neonGreen, fontSize: 11, fontWeight: FontWeight.w600)),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildDpiSettings() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildTextFieldSetting("DPI", _dpiController, "dpi", (val) {
-          double? parsed = double.tryParse(val);
-          if (parsed != null) setState(() => _dpiValue = parsed);
-        }),
-        const SizedBox(height: 10),
-        _buildTextFieldSetting("Resolution", _resController, "%", (val) {
-          double? parsed = double.tryParse(val);
-          if (parsed != null) setState(() => _resScale = parsed);
-        }),
-        const SizedBox(height: 10),
-        _buildSliderSetting("Render Scale", _renderScale, 50, 100, "%", (val) => setState(() => _renderScale = val)),
-        const SizedBox(height: 14),
-        Text("Refresh Rate", style: GoogleFonts.inter(color: AppColors.textWhite, fontSize: 11, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _buildRateButton(60),
-            _buildRateButton(90),
-            _buildRateButton(120),
-          ],
-        ),
-        const SizedBox(height: 14),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Display Opt.", style: GoogleFonts.inter(color: AppColors.textWhite, fontSize: 11, fontWeight: FontWeight.w600)),
-                Text("Auto-adjust per device", style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 9)),
-              ],
+  Widget _buildSpecialItem({required String title, required Widget iconWidget}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 46, height: 46,
+            decoration: BoxDecoration(
+              color: Colors.black26,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.border),
             ),
-            SciFiSwitch(
-              value: _displayOpt,
-              onChanged: (val) => setState(() => _displayOpt = val),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSliderSetting(String title, double value, double min, double max, String unit, ValueChanged<double> onChanged) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(title, style: GoogleFonts.inter(color: AppColors.textWhite, fontSize: 11, fontWeight: FontWeight.w600)),
-            Text("${value.toInt()}$unit", style: GoogleFonts.inter(color: AppColors.neonGreen, fontSize: 11, fontWeight: FontWeight.w600)),
-          ],
-        ),
-        Slider(value: value, min: min, max: max, onChanged: onChanged),
-      ],
-    );
-  }
-
-  Widget _buildTextFieldSetting(String title, TextEditingController controller, String unit, ValueChanged<String> onChanged) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(title, style: GoogleFonts.inter(color: AppColors.textWhite, fontSize: 11, fontWeight: FontWeight.w600)),
-        SizedBox(
-          width: 85,
-          child: TextField(
-            controller: controller,
-            keyboardType: TextInputType.number,
-            style: GoogleFonts.inter(color: AppColors.neonGreen, fontSize: 12, fontWeight: FontWeight.w600),
-            textAlign: TextAlign.center,
-            decoration: InputDecoration(
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-              suffixText: unit,
-              suffixStyle: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 10),
-              enabledBorder: OutlineInputBorder(borderSide: const BorderSide(color: AppColors.border), borderRadius: BorderRadius.circular(8)),
-              focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: AppColors.neonGreen), borderRadius: BorderRadius.circular(8)),
-              filled: true,
-              fillColor: AppColors.surface,
-            ),
-            onChanged: onChanged,
+            child: Center(child: iconWidget),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRateButton(int rate) {
-    bool isSelected = _refreshRate == rate;
-    return GestureDetector(
-      onTap: () => setState(() => _refreshRate = rate),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.neonGreen.withOpacity(0.12) : AppColors.surface,
-          border: Border.all(color: isSelected ? AppColors.neonGreen.withOpacity(0.5) : AppColors.border),
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: isSelected ? AppColors.glowGreen(blur: 10, opacity: 0.06) : null,
-        ),
-        child: Text(
-          "${rate}Hz",
-          style: GoogleFonts.inter(color: isSelected ? AppColors.neonGreen : AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600),
-        ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(title, style: GoogleFonts.inter(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+          ),
+        ],
       ),
     );
   }
+
 }

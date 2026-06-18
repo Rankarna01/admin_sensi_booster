@@ -9,6 +9,8 @@ import '../../providers/client_provider.dart';
 import '../widgets/feature_card.dart';
 import '../widgets/neon_loading.dart';
 import 'auto_clicker_page.dart';
+import 'smart_touch_dashboard.dart';
+import 'resolution_changer_view.dart';
 
 class FeatureView extends ConsumerStatefulWidget {
   const FeatureView({super.key});
@@ -27,7 +29,29 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
   bool _showClock = true;
   bool _showFps = true;
 
+  String _latencyMode = "Normal";
+  bool _pingOverlay = false;
+  bool _wifiBoost = false;
+  bool _smartRoute = false;
+
+  double _dpiValue = 480;
+  double _resScale = 100;
+  double _renderScale = 100;
+  int _refreshRate = 60;
+  bool _displayOpt = true;
+
+  final TextEditingController _dpiController = TextEditingController(text: "480");
+  final TextEditingController _resController = TextEditingController(text: "100");
+
   static const MethodChannel _overlayChannel = MethodChannel('com.mfw.sensi_booster/overlay');
+  static const MethodChannel _vpnChannel = MethodChannel('com.mfw.sensi_booster/vpn');
+
+  @override
+  void dispose() {
+    _dpiController.dispose();
+    _resController.dispose();
+    super.dispose();
+  }
 
   Future<void> _handleFloatingGameToggle(bool isActive) async {
     setState(() => _isLoading = true);
@@ -88,6 +112,41 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
       _isLoading = false;
       _activeFeatures[key] = isActive;
     });
+  }
+
+  void _applySpecificLatencyMode(String mode) async {
+    try {
+      await _vpnChannel.invokeMethod('startVpn', {'mode': mode});
+      if (mounted) {
+        String extra = _wifiBoost ? " + WiFi Boost" : "";
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Mode VPN $mode aktif$extra"), backgroundColor: AppColors.neonGreenDark),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Gagal: $e"), backgroundColor: Colors.redAccent),
+        );
+      }
+    }
+  }
+
+  Future<void> _executeLatencyMode(bool isActive) async {
+    setState(() => _isLoading = true);
+    await Future.delayed(const Duration(milliseconds: 1500));
+    setState(() {
+      _isLoading = false;
+      _activeFeatures['latency_mode'] = isActive;
+    });
+
+    if (!isActive) { await _vpnChannel.invokeMethod('stopVpn'); return; }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Mengaktifkan VPN...", style: GoogleFonts.inter(fontWeight: FontWeight.w500)), backgroundColor: AppColors.neonGreen.withOpacity(0.8)),
+      );
+    }
+    _applySpecificLatencyMode(_latencyMode);
   }
 
   Future<void> _handleAutoClickerToggle(bool isActive) async {
@@ -179,6 +238,58 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
                       isAllowed: features['auto_clicker'] == true,
                       onChanged: _handleAutoClickerToggle,
                     ),
+                    FeatureCard(
+                      title: "Game Lab Sensi",
+                      description: "Sensitivitas layar khusus game.",
+                      iconWidget: const FaIcon(FontAwesomeIcons.crosshairs),
+                      isActive: _activeFeatures['game_lab_sensi'] ?? false,
+                      isAllowed: features['game_lab_sensi'] == true,
+                      onChanged: (val) => _handleGenericToggle('game_lab_sensi', val),
+                    ),
+                    FeatureCard(
+                      title: "CPU & RAM Tweaks",
+                      description: "CPU Governor, Core Priority, Memory Cache.",
+                      iconWidget: const FaIcon(FontAwesomeIcons.memory),
+                      isActive: _activeFeatures['cpu_tweak'] ?? false,
+                      isAllowed: features['cpu_tweak'] == true,
+                      onChanged: (val) => _handleGenericToggle('cpu_tweak', val),
+                    ),
+                    FeatureCard(
+                      title: "Latency Mode",
+                      description: "Stabilisasi ping & optimasi jaringan.",
+                      iconWidget: const FaIcon(FontAwesomeIcons.wifi),
+                      isActive: _activeFeatures['latency_mode'] ?? false,
+                      isAllowed: features['latency_mode'] == true,
+                      onChanged: (val) => _executeLatencyMode(val),
+                      extraContent: _buildLatencySettings(),
+                    ),
+                    FeatureCard(
+                      title: "Ping Overlay",
+                      description: "Widget ping real-time di layar.",
+                      iconWidget: const FaIcon(FontAwesomeIcons.tachometerAlt),
+                      isActive: _activeFeatures['speed_test'] ?? false,
+                      isAllowed: features['speed_test'] == true,
+                      onChanged: (val) => _handleGenericToggle('speed_test', val),
+                    ),
+                    FeatureCard(
+                      title: "Smart Switch DPI",
+                      description: "Resolusi & DPI Android untuk grafis optimal.",
+                      iconWidget: const FaIcon(FontAwesomeIcons.mobileAlt),
+                      isActive: _activeFeatures['set_dpi'] ?? false,
+                      isAllowed: features['set_dpi'] == true,
+                      onChanged: (val) {
+                        _handleGenericToggle('set_dpi', val);
+                        if (val) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const ResolutionChangerView()),
+                          ).then((_) {
+                            // Turn toggle off when returning, or keep it on depending on preference.
+                            // We can keep it on if we assume they applied something, or just leave it.
+                          });
+                        }
+                      },
+                    ),
                   ],
                 );
               },
@@ -260,4 +371,77 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
       ),
     );
   }
+
+  Widget _buildLatencySettings() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("Network Mode", style: GoogleFonts.inter(color: AppColors.textWhite, fontSize: 11, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(child: _buildLatencyButton("Normal", "Stabil")),
+            const SizedBox(width: 6),
+            Expanded(child: _buildLatencyButton("Low", "Cepat")),
+            const SizedBox(width: 6),
+            Expanded(child: _buildLatencyButton("Ultra", "Max")),
+          ],
+        ),
+        const SizedBox(height: 14),
+        _buildToggleSetting("Ping Overlay", "Tampilkan ping di layar", _pingOverlay, (val) => setState(() => _pingOverlay = val)),
+        _buildToggleSetting("WiFi Boost", "Prioritas jaringan WiFi", _wifiBoost, (val) => setState(() => _wifiBoost = val)),
+        _buildToggleSetting("Smart Route", "DNS Fast otomatis", _smartRoute, (val) => setState(() => _smartRoute = val)),
+      ],
+    );
+  }
+
+  Widget _buildLatencyButton(String mode, String sub) {
+    bool isSelected = _latencyMode == mode;
+    return GestureDetector(
+      onTap: () {
+        setState(() => _latencyMode = mode);
+        if (_activeFeatures['latency_mode'] == true) _applySpecificLatencyMode(mode);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.neonGreen.withOpacity(0.12) : AppColors.surface,
+          border: Border.all(color: isSelected ? AppColors.neonGreen.withOpacity(0.5) : AppColors.border),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: isSelected ? AppColors.glowGreen(blur: 12, opacity: 0.08) : null,
+        ),
+        child: Column(
+          children: [
+            Text(mode, style: GoogleFonts.inter(color: isSelected ? AppColors.neonGreen : AppColors.textWhite, fontSize: 11, fontWeight: FontWeight.w600)),
+            Text(sub, style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 9)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToggleSetting(String title, String subtitle, bool value, ValueChanged<bool> onChanged) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: GoogleFonts.inter(color: AppColors.textWhite, fontSize: 11, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(subtitle, style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 10)),
+              ],
+            ),
+          ),
+          SciFiSwitch(value: value, onChanged: onChanged),
+        ],
+      ),
+    );
+  }
+
 }
