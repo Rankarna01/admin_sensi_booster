@@ -29,6 +29,17 @@ class MainActivity : FlutterActivity() {
         // Shizuku Channel
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SHIZUKU_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
+                "checkShizukuStatus" -> {
+                    if (rikka.shizuku.Shizuku.pingBinder()) {
+                        if (rikka.shizuku.Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
+                            result.success("running_granted")
+                        } else {
+                            result.success("running_not_granted")
+                        }
+                    } else {
+                        result.success("not_running")
+                    }
+                }
                 "checkPermission" -> {
                     if (rikka.shizuku.Shizuku.pingBinder()) {
                         result.success(rikka.shizuku.Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED)

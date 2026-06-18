@@ -1,4 +1,4 @@
-
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -18,7 +18,7 @@ class _ResolutionChangerViewState extends State<ResolutionChangerView> {
   static const MethodChannel _shizukuChannel = MethodChannel('com.mfw.sensi_booster/shizuku');
 
   String _selectedMode = "Mode Biasa";
-  final List<String> _displayModes = ["Mode Biasa", "Mode Ultrawide (21:9)", "Mode iPad (4:3)"];
+  final List<String> _displayModes = ["Mode Biasa", "Mode Ultrawide (21:9)", "Mode iPad (4:3)", "Mode Custom"];
   
   final TextEditingController _widthController = TextEditingController();
   final TextEditingController _heightController = TextEditingController();
@@ -30,6 +30,9 @@ class _ResolutionChangerViewState extends State<ResolutionChangerView> {
   int _nativeWidth = 1080;
   int _nativeHeight = 2400;
 
+  String _shizukuStatus = "loading";
+  Timer? _statusTimer;
+
   @override
   void initState() {
     super.initState();
@@ -38,6 +41,26 @@ class _ResolutionChangerViewState extends State<ResolutionChangerView> {
       _calculateResolution();
     });
     _loadAddedGames();
+    
+    _checkStatus();
+    _statusTimer = Timer.periodic(const Duration(seconds: 2), (_) => _checkStatus());
+  }
+
+  @override
+  void dispose() {
+    _statusTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _checkStatus() async {
+    try {
+      final status = await _shizukuChannel.invokeMethod('checkShizukuStatus');
+      if (mounted && status != null) {
+        setState(() => _shizukuStatus = status as String);
+      }
+    } catch (e) {
+      // ignore
+    }
   }
 
   void _initNativeResolution() {
@@ -65,6 +88,8 @@ class _ResolutionChangerViewState extends State<ResolutionChangerView> {
     } else if (_selectedMode == "Mode iPad (4:3)") {
       _widthController.text = _nativeWidth.toString();
       _heightController.text = (_nativeWidth * 4 ~/ 3).toString();
+    } else if (_selectedMode == "Mode Custom") {
+      // Biarkan user isi manual
     }
   }
 
@@ -95,6 +120,11 @@ class _ResolutionChangerViewState extends State<ResolutionChangerView> {
   }
 
   Future<void> _applyChanges() async {
+    if (_shizukuStatus == "not_running") {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Harap jalankan Shizuku terlebih dahulu.")));
+      return;
+    }
+
     final w = _widthController.text.trim();
     final h = _heightController.text.trim();
     final d = _dpiController.text.trim();
@@ -117,6 +147,11 @@ class _ResolutionChangerViewState extends State<ResolutionChangerView> {
   }
 
   Future<void> _resetChanges() async {
+    if (_shizukuStatus == "not_running") {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Harap jalankan Shizuku terlebih dahulu.")));
+      return;
+    }
+
     await _runCommand("wm size reset && wm density reset");
     setState(() {
       _selectedMode = "Mode Biasa";
@@ -144,6 +179,59 @@ class _ResolutionChangerViewState extends State<ResolutionChangerView> {
     }
   }
 
+  Widget _buildShizukuStatus() {
+    Color bgColor = Colors.white10;
+    Color iconColor = Colors.white54;
+    IconData icon = Icons.info_outline;
+    String title = "Mengecek Shizuku...";
+    String desc = "Harap tunggu sebentar.";
+
+    if (_shizukuStatus == "running_granted") {
+      bgColor = AppColors.neonGreen.withAlpha(25); // ~0.1 opacity
+      iconColor = AppColors.neonGreen;
+      icon = Icons.check_circle;
+      title = "Shizuku Aktif";
+      desc = "Sistem telah siap digunakan.";
+    } else if (_shizukuStatus == "running_not_granted") {
+      bgColor = Colors.orange.withAlpha(25);
+      iconColor = Colors.orange;
+      icon = Icons.warning_amber;
+      title = "Izin Diperlukan";
+      desc = "Shizuku berjalan, tap APPLY untuk minta izin.";
+    } else if (_shizukuStatus == "not_running") {
+      bgColor = Colors.redAccent.withAlpha(25);
+      iconColor = Colors.redAccent;
+      icon = Icons.error_outline;
+      title = "Shizuku Belum Aktif";
+      desc = "Jalankan Shizuku lewat Wireless Debugging.";
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: iconColor.withAlpha(128)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: iconColor, size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                Text(desc, style: GoogleFonts.inter(color: Colors.white70, fontSize: 11)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -162,6 +250,8 @@ class _ResolutionChangerViewState extends State<ResolutionChangerView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildShizukuStatus(),
+
             Text("DISPLAY MODE", style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 12, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Container(
@@ -202,11 +292,11 @@ class _ResolutionChangerViewState extends State<ResolutionChangerView> {
             Row(
               children: [
                 Expanded(
-                  child: _buildTextField(_widthController, "Width", readOnly: true),
+                  child: _buildTextField(_widthController, "Width", keyboardType: TextInputType.number),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: _buildTextField(_heightController, "Height", readOnly: true),
+                  child: _buildTextField(_heightController, "Height", keyboardType: TextInputType.number),
                 ),
               ],
             ),
@@ -278,6 +368,13 @@ class _ResolutionChangerViewState extends State<ResolutionChangerView> {
         keyboardType: keyboardType,
         style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600),
         textAlign: TextAlign.center,
+        onChanged: (_) {
+          if (_selectedMode != "Mode Custom") {
+            setState(() {
+              _selectedMode = "Mode Custom";
+            });
+          }
+        },
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: GoogleFonts.inter(color: Colors.white24),
