@@ -10,6 +10,10 @@ import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import android.content.ComponentName
+import android.content.ServiceConnection
+import android.os.IBinder
+import android.util.Log
 
 class MainActivity : FlutterActivity() {
     private val VPN_CHANNEL = "com.mfw.sensi_booster/vpn"
@@ -22,9 +26,77 @@ class MainActivity : FlutterActivity() {
     private var pendingMode = "Normal"
     private var overlayChannel: MethodChannel? = null
     private val SHIZUKU_CHANNEL = "com.mfw.sensi_booster/shizuku"
+    private val MACRO_SHIZUKU_CHANNEL = "com.mfw.sensi_booster/macro_shizuku"
+
+    private var macroService: IShizukuMacroService? = null
+    
+    private val userServiceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            macroService = IShizukuMacroService.Stub.asInterface(service)
+            Log.d("SensiBooster", "Shizuku UserService connected")
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            macroService = null
+            Log.d("SensiBooster", "Shizuku UserService disconnected")
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        
+        // Macro Shizuku Channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, MACRO_SHIZUKU_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "bindService" -> {
+                    if (rikka.shizuku.Shizuku.pingBinder() && rikka.shizuku.Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
+                        try {
+                            val args = rikka.shizuku.Shizuku.UserServiceArgs(ComponentName(packageName, ShizukuMacroService::class.java.name))
+                                .daemon(false)
+                                .processNameSuffix("macro_service")
+                                .debuggable(true)
+                                .version(1)
+                            rikka.shizuku.Shizuku.bindUserService(args, userServiceConnection)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            result.success(false)
+                        }
+                    } else {
+                        result.success(false)
+                    }
+                }
+                "startMacro" -> {
+                    val x = call.argument<Int>("x") ?: 0
+                    val y = call.argument<Int>("y") ?: 0
+                    val delayMs = call.argument<Int>("delayMs") ?: 100
+                    
+                    if (macroService != null) {
+                        try {
+                            macroService?.startAutoClick(x, y, delayMs)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.success(false)
+                        }
+                    } else {
+                        result.success(false)
+                    }
+                }
+                "stopMacro" -> {
+                    if (macroService != null) {
+                        try {
+                            macroService?.stopAutoClick()
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.success(false)
+                        }
+                    } else {
+                        result.success(false)
+                    }
+                }
+                else -> result.notImplemented()
+            }
+        }
         
         // Shizuku Channel
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SHIZUKU_CHANNEL).setMethodCallHandler { call, result ->
@@ -252,6 +324,7 @@ class MainActivity : FlutterActivity() {
                         intent.putExtra("cps", call.argument<Int>("cps") ?: 10)
                         intent.putExtra("pointCount", call.argument<Int>("pointCount") ?: 1)
                         intent.putExtra("interval", call.argument<Int>("interval") ?: 100)
+                        intent.putExtra("isShizukuMode", call.argument<Boolean>("isShizukuMode") ?: false)
                         val xList = call.argument<List<Double>>("xList") ?: listOf(540.0)
                         val yList = call.argument<List<Double>>("yList") ?: listOf(960.0)
                         intent.putExtra("xList", xList.toDoubleArray())

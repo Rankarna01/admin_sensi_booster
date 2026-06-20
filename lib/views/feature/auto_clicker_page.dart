@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
@@ -25,10 +26,17 @@ class AutoClickerPage extends StatefulWidget {
 class _AutoClickerPageState extends State<AutoClickerPage> {
   static const MethodChannel _channel =
       MethodChannel('com.mfw.sensi_booster/autoclicker');
+  static const MethodChannel _shizukuChannel =
+      MethodChannel('com.mfw.sensi_booster/shizuku');
+  static const MethodChannel _macroShizukuChannel =
+      MethodChannel('com.mfw.sensi_booster/macro_shizuku');
 
   bool _isRunning = false;
   bool _isLoading = false;
   bool _serviceEnabled = false;
+  bool _isShizukuMode = false;
+  String _shizukuStatus = "loading";
+  Timer? _shizukuTimer;
   int _cps = 10;
 
   final List<_TouchPoint> _touchPoints = [
@@ -39,9 +47,29 @@ class _AutoClickerPageState extends State<AutoClickerPage> {
   void initState() {
     super.initState();
     _checkServiceStatus();
+    _checkShizukuStatus();
+    _shizukuTimer = Timer.periodic(const Duration(seconds: 2), (_) => _checkShizukuStatus());
+  }
+
+  @override
+  void dispose() {
+    _shizukuTimer?.cancel();
+    super.dispose();
   }
 
   // ── Native bridge helpers ──────────────────
+
+  Future<void> _checkShizukuStatus() async {
+    try {
+      final status = await _shizukuChannel.invokeMethod('checkShizukuStatus');
+      if (mounted && status != null) {
+        setState(() => _shizukuStatus = status as String);
+        if (_shizukuStatus == "running_granted" && _isShizukuMode) {
+          await _macroShizukuChannel.invokeMethod('bindService');
+        }
+      }
+    } catch (_) {}
+  }
 
   Future<void> _checkServiceStatus() async {
     try {
@@ -225,6 +253,7 @@ class _AutoClickerPageState extends State<AutoClickerPage> {
         'pointCount': _touchPoints.length,
         'xList': _touchPoints.map((p) => p.x.toDouble()).toList(),
         'yList': _touchPoints.map((p) => p.y.toDouble()).toList(),
+        'isShizukuMode': _isShizukuMode,
       });
 
       if (mounted) {
@@ -360,64 +389,198 @@ class _AutoClickerPageState extends State<AutoClickerPage> {
   }
 
   Widget _buildServiceStatus() {
-    return GestureDetector(
-      onTap: _openAccessibilitySettings,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: _serviceEnabled
-              ? AppColors.neonGreen.withAlpha(15)
-              : Colors.orange.withAlpha(15),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: _serviceEnabled
-                ? AppColors.neonGreen.withAlpha(76)
-                : Colors.orange.withAlpha(76),
+    return Column(
+      children: [
+        // Mode Toggle
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.border),
           ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              _serviceEnabled
-                  ? Icons.check_circle_rounded
-                  : Icons.warning_amber_rounded,
-              color: _serviceEnabled
-                  ? AppColors.neonGreen
-                  : Colors.orange,
-              size: 20,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _serviceEnabled
-                        ? "Accessibility Service Enabled"
-                        : "Accessibility Service Required",
-                    style: GoogleFonts.inter(
-                      color: _serviceEnabled
-                          ? AppColors.neonGreen
-                          : Colors.orange,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+          child: Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _isShizukuMode = false),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: !_isShizukuMode
+                          ? AppColors.neonGreen.withAlpha(30)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      "Accessibility Mode",
+                      style: GoogleFonts.inter(
+                        color: !_isShizukuMode
+                            ? AppColors.neonGreen
+                            : AppColors.textMuted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                  Text(
-                    _serviceEnabled
-                        ? "Tap to manage settings"
-                        : "Tap to open Settings and enable it",
-                    style: GoogleFonts.inter(
-                        color: AppColors.textMuted, fontSize: 10),
-                  ),
-                ],
+                ),
               ),
-            ),
-            const Icon(Icons.arrow_forward_ios_rounded,
-                color: AppColors.textMuted, size: 14),
-          ],
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() {
+                    _isShizukuMode = true;
+                    _checkShizukuStatus();
+                  }),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _isShizukuMode
+                          ? AppColors.neonGreen.withAlpha(30)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      "Shizuku Mode",
+                      style: GoogleFonts.inter(
+                        color: _isShizukuMode
+                            ? AppColors.neonGreen
+                            : AppColors.textMuted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
+        const SizedBox(height: 12),
+        // Status Indicator
+        _isShizukuMode
+            ? _buildShizukuStatus()
+            : GestureDetector(
+                onTap: _openAccessibilitySettings,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: _serviceEnabled
+                        ? AppColors.neonGreen.withAlpha(15)
+                        : Colors.orange.withAlpha(15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _serviceEnabled
+                          ? AppColors.neonGreen.withAlpha(76)
+                          : Colors.orange.withAlpha(76),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _serviceEnabled
+                            ? Icons.check_circle_rounded
+                            : Icons.warning_amber_rounded,
+                        color: _serviceEnabled
+                            ? AppColors.neonGreen
+                            : Colors.orange,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _serviceEnabled
+                                  ? "Accessibility Service Enabled"
+                                  : "Accessibility Service Required",
+                              style: GoogleFonts.inter(
+                                color: _serviceEnabled
+                                    ? AppColors.neonGreen
+                                    : Colors.orange,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              _serviceEnabled
+                                  ? "Tap to manage settings"
+                                  : "Tap to open Settings and enable it",
+                              style: GoogleFonts.inter(
+                                  color: AppColors.textMuted, fontSize: 10),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_ios_rounded,
+                          color: AppColors.textMuted, size: 14),
+                    ],
+                  ),
+                ),
+              ),
+      ],
+    );
+  }
+
+  Widget _buildShizukuStatus() {
+    bool isGranted = _shizukuStatus == "running_granted";
+    bool notGranted = _shizukuStatus == "running_not_granted";
+    
+    Color color = isGranted
+        ? AppColors.neonGreen
+        : notGranted ? Colors.orange : Colors.redAccent;
+        
+    String title = isGranted
+        ? "Shizuku Service Running & Granted"
+        : notGranted
+            ? "Shizuku Running but Not Granted"
+            : "Shizuku Not Running";
+            
+    String sub = isGranted
+        ? "Multi-Touch Macro is ready"
+        : notGranted
+            ? "Please grant permission in Shizuku app"
+            : "Please start Shizuku daemon first";
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withAlpha(15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withAlpha(76)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isGranted ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
+            color: color,
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.inter(
+                    color: color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  sub,
+                  style: GoogleFonts.inter(
+                      color: AppColors.textMuted, fontSize: 10),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -552,32 +715,36 @@ class _AutoClickerPageState extends State<AutoClickerPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text("Number of Points",
-              style: GoogleFonts.inter(
-                  color: AppColors.textWhite,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600)),
-          Row(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildCounterButton(Icons.remove, _removeTouchPoint),
-              Container(
-                width: 44,
-                height: 32,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.neonGreen.withAlpha(20),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                      color: AppColors.neonGreen.withAlpha(76)),
-                ),
-                child: Text("${_touchPoints.length}",
-                    style: GoogleFonts.orbitron(
-                        color: AppColors.neonGreen,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700)),
-              ),
-              _buildCounterButton(Icons.add, _addTouchPoint),
+              Text("Number of Points",
+                  style: GoogleFonts.inter(
+                      color: AppColors.textWhite,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600)),
+              Text("Multi-target disabled for now",
+                  style: GoogleFonts.inter(
+                      color: AppColors.textMuted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w400)),
             ],
+          ),
+          Container(
+            width: 44,
+            height: 32,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.neonGreen.withAlpha(20),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                  color: AppColors.neonGreen.withAlpha(76)),
+            ),
+            child: Text("1",
+                style: GoogleFonts.orbitron(
+                    color: AppColors.neonGreen,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700)),
           ),
         ],
       ),

@@ -42,6 +42,7 @@ class AutoClickerOverlayService : Service() {
     private var cps = 10
     private var isMapping = false
     private var markerOpacity = 1.0f
+    private var isShizukuMode = false
 
     private val pointMarkers = mutableListOf<FrameLayout>()
     private val markerLayoutParams = mutableListOf<WindowManager.LayoutParams>()
@@ -67,12 +68,23 @@ class AutoClickerOverlayService : Service() {
         }
     }
 
+    private var shizukuMacroService: IShizukuMacroService? = null
+    private val shizukuConnection = object : android.content.ServiceConnection {
+        override fun onServiceConnected(name: android.content.ComponentName?, service: IBinder?) {
+            shizukuMacroService = IShizukuMacroService.Stub.asInterface(service)
+        }
+        override fun onServiceDisconnected(name: android.content.ComponentName?) {
+            shizukuMacroService = null
+        }
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         cps = intent?.getIntExtra("cps", 10) ?: 10
         pointCount = intent?.getIntExtra("pointCount", 1) ?: 1
         intervalMs = intent?.getIntExtra("interval", 100) ?: 100
+        isShizukuMode = intent?.getBooleanExtra("isShizukuMode", false) ?: false
 
         var xList = intent?.getDoubleArrayExtra("xList")?.toList() ?: emptyList()
         var yList = intent?.getDoubleArrayExtra("yList")?.toList() ?: emptyList()
@@ -99,6 +111,19 @@ class AutoClickerOverlayService : Service() {
         } else {
             @Suppress("UnspecifiedRegisterReceiverFlag")
             registerReceiver(stopReceiver, IntentFilter(ACTION_STOP_OVERLAY))
+        }
+
+        if (isShizukuMode) {
+            try {
+                if (rikka.shizuku.Shizuku.pingBinder() && rikka.shizuku.Shizuku.checkSelfPermission() == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    val args = rikka.shizuku.Shizuku.UserServiceArgs(android.content.ComponentName(packageName, ShizukuMacroService::class.java.name))
+                        .daemon(false)
+                        .processNameSuffix("macro_service")
+                        .debuggable(true)
+                        .version(1)
+                    rikka.shizuku.Shizuku.bindUserService(args, shizukuConnection)
+                }
+            } catch (e: Exception) {}
         }
 
         if (windowManager == null) windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
@@ -507,25 +532,45 @@ class AutoClickerOverlayService : Service() {
                     when (event.action) {
                         MotionEvent.ACTION_DOWN -> {
                             // Trigger burst
-                            val service = AutoClickerService.instance
-                            if (service != null && touchPoints.isNotEmpty()) {
-                                // Make marker red and untouchable to let clicks pass through
-                                val inner = (v as? FrameLayout)?.getChildAt(1)
-                                (inner?.background as? GradientDrawable)?.setColor(Color.parseColor("#EEF43F5E")) // Red
-                                
-                                params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-                                try { windowManager?.updateViewLayout(v, params) } catch (_: Exception) {}
+                            if (isShizukuMode && shizukuMacroService != null) {
+                                if (touchPoints.isNotEmpty()) {
+                                    val inner = (v as? FrameLayout)?.getChildAt(1)
+                                    (inner?.background as? GradientDrawable)?.setColor(Color.parseColor("#EEF43F5E"))
+                                    params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                                    try { windowManager?.updateViewLayout(v, params) } catch (_: Exception) {}
 
-                                service.burstClick(intervalMs.toLong(), listOf(touchPoints[index]), 20) {
-                                    // On complete, restore color and touchability
-                                    Handler(Looper.getMainLooper()).post {
-                                        (inner?.background as? GradientDrawable)?.setColor(Color.parseColor("#AA1A3A2A")) // Green
-                                        params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
-                                        try { windowManager?.updateViewLayout(v, params) } catch (_: Exception) {}
-                                    }
+                                    shizukuMacroService?.startAutoClick(touchPoints[index][0].toInt(), touchPoints[index][1].toInt(), intervalMs)
+                                    val totalDuration = intervalMs * 20L
+                                    Handler(Looper.getMainLooper()).postDelayed({
+                                        try {
+                                            shizukuMacroService?.stopAutoClick()
+                                            (inner?.background as? GradientDrawable)?.setColor(Color.parseColor("#AA1A3A2A"))
+                                            params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+                                            windowManager?.updateViewLayout(v, params)
+                                        } catch (_: Exception) {}
+                                    }, totalDuration)
                                 }
-                            } else if (service == null) {
-                                Toast.makeText(this@AutoClickerOverlayService, "Enable Accessibility in Settings!", Toast.LENGTH_SHORT).show()
+                            } else {
+                                val service = AutoClickerService.instance
+                                if (service != null && touchPoints.isNotEmpty()) {
+                                    // Make marker red and untouchable to let clicks pass through
+                                    val inner = (v as? FrameLayout)?.getChildAt(1)
+                                    (inner?.background as? GradientDrawable)?.setColor(Color.parseColor("#EEF43F5E")) // Red
+                                    
+                                    params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                                    try { windowManager?.updateViewLayout(v, params) } catch (_: Exception) {}
+
+                                    service.burstClick(intervalMs.toLong(), listOf(touchPoints[index]), 20) {
+                                        // On complete, restore color and touchability
+                                        Handler(Looper.getMainLooper()).post {
+                                            (inner?.background as? GradientDrawable)?.setColor(Color.parseColor("#AA1A3A2A")) // Green
+                                            params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+                                            try { windowManager?.updateViewLayout(v, params) } catch (_: Exception) {}
+                                        }
+                                    }
+                                } else if (service == null) {
+                                    Toast.makeText(this@AutoClickerOverlayService, "Enable Accessibility in Settings!", Toast.LENGTH_SHORT).show()
+                                }
                             }
                             return true
                         }
