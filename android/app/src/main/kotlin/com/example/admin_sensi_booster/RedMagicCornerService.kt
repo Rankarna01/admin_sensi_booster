@@ -1,5 +1,6 @@
 package com.example.admin_sensi_booster
 
+import android.animation.ValueAnimator
 import android.app.ActivityManager
 import android.app.Notification
 import android.app.NotificationChannel
@@ -9,7 +10,11 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.BlurMaskFilter
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -22,6 +27,8 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.animation.DecelerateInterpolator
+import android.widget.FrameLayout
 import android.widget.GridLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -29,13 +36,77 @@ import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import java.io.RandomAccessFile
 
+// ─── Custom View for Red Magic Background ──────────────────────────────
+class RedMagicBgView(context: Context) : View(context) {
+    private val path = Path()
+    private val paintFill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#E60A0000") // Very dark red, 90% opacity
+        style = Paint.Style.FILL
+    }
+    private val paintStroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#CCFF0000")
+        style = Paint.Style.STROKE
+        strokeWidth = 4f
+    }
+    private val paintGlow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#66FF0000")
+        style = Paint.Style.STROKE
+        strokeWidth = 15f
+        maskFilter = BlurMaskFilter(15f, BlurMaskFilter.Blur.NORMAL)
+    }
+    private val spikePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#FF0000")
+        style = Paint.Style.FILL
+    }
+
+    var glowAlpha = 0.4f
+        set(value) {
+            field = value
+            paintGlow.color = Color.argb((255 * value).toInt(), 255, 0, 0)
+            invalidate()
+        }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        val w = width.toFloat()
+        val h = height.toFloat()
+        val r = 24f
+        val wingTop = 0.16f
+
+        path.reset()
+        path.moveTo(w * 0.04f + r, h)
+        path.quadTo(w * 0.04f, h, w * 0.04f, h - r)
+        path.lineTo(w * 0.12f, h * wingTop)
+        path.lineTo(w * 0.40f, h * wingTop)
+        path.lineTo(w * 0.43f, 0f)
+        path.lineTo(w * 0.57f, 0f)
+        path.lineTo(w * 0.60f, h * wingTop)
+        path.lineTo(w * 0.88f, h * wingTop)
+        path.lineTo(w * 0.96f, h - r)
+        path.quadTo(w * 0.96f, h, w * 0.96f - r, h)
+        path.close()
+
+        canvas.drawPath(path, paintFill)
+        canvas.drawPath(path, paintGlow)
+        canvas.drawPath(path, paintStroke)
+
+        val spike = Path()
+        spike.moveTo(w * 0.40f, h * wingTop)
+        spike.lineTo(w * 0.43f, 0f)
+        spike.lineTo(w * 0.57f, 0f)
+        spike.lineTo(w * 0.60f, h * wingTop)
+        spike.close()
+        canvas.drawPath(spike, spikePaint)
+    }
+}
+
+// ─── Main Service ──────────────────────────────────────────────────────
 class RedMagicCornerService : Service() {
 
     companion object {
         var isRunning = false
         const val ACTION_STOP = "com.example.admin_sensi_booster.STOP_REDMAGIC_CORNER"
 
-        // Feature definitions – key matches Firestore features map
         val FEATURES = listOf(
             Triple("floating_game",  "Floating",  "📊"),
             Triple("crosshair",      "Crosshair", "🎯"),
@@ -50,14 +121,12 @@ class RedMagicCornerService : Service() {
 
     private lateinit var wm: WindowManager
     private lateinit var logoView: LinearLayout
-    private var panelView: LinearLayout? = null
+    private var panelContainer: FrameLayout? = null
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var statsRunnable: Runnable
 
-    // allowed feature keys passed from Flutter
     private var allowedFeatures: List<String> = emptyList()
 
-    // live stats
     private var cpuPct    = 0.0
     private var ramUsedGB = 0.0
     private var ramTotGB  = 0.0
@@ -65,13 +134,14 @@ class RedMagicCornerService : Service() {
     private var tempC     = 0.0
     private var panelVisible = false
 
-    // UI refs inside panel
     private var tvCpu: TextView?  = null
     private var tvRam: TextView?  = null
     private var tvBat: TextView?  = null
     private var tvTemp: TextView? = null
 
-    // ── battery receiver ─────────────────────────────────
+    private var slideAnimator: ValueAnimator? = null
+    private var glowAnimator: ValueAnimator? = null
+
     private val battReceiver = object : BroadcastReceiver() {
         override fun onReceive(ctx: Context, intent: Intent) {
             val lv = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, 0)
@@ -86,13 +156,11 @@ class RedMagicCornerService : Service() {
         override fun onReceive(ctx: Context, i: Intent) { if (i.action == ACTION_STOP) stopSelf() }
     }
 
-    // ─────────────────────────────────────────────────────
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) { stopSelf(); return START_NOT_STICKY }
 
-        // Read allowed features from Intent extras (comma-separated keys)
         val featureStr = intent?.getStringExtra("allowedFeatures") ?: ""
         allowedFeatures = if (featureStr.isBlank()) emptyList() else featureStr.split(",")
 
@@ -110,13 +178,14 @@ class RedMagicCornerService : Service() {
         super.onDestroy()
         isRunning = false
         handler.removeCallbacksAndMessages(null)
+        slideAnimator?.cancel()
+        glowAnimator?.cancel()
         removePanelSafe()
         try { wm.removeView(logoView) } catch (_: Exception) {}
         try { unregisterReceiver(battReceiver) } catch (_: Exception) {}
         try { unregisterReceiver(stopReceiver) } catch (_: Exception) {}
     }
 
-    // ─── Foreground notification ──────────────────────────
     private fun startForegroundNotification() {
         val chId = "redmagic_corner"
         val nm   = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -140,26 +209,22 @@ class RedMagicCornerService : Service() {
         startForeground(1099, n)
     }
 
-    // ─── Overlay type helper ──────────────────────────────
     private fun overlayType() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
         WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
     else
         WindowManager.LayoutParams.TYPE_PHONE
 
-    // ─── Logo floating icon ───────────────────────────────
     private fun setupLogo() {
         wm = getSystemService(WINDOW_SERVICE) as WindowManager
 
         logoView = LinearLayout(this).apply { gravity = Gravity.CENTER }
 
-        // Circle background
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             setColor(Color.parseColor("#CC000000"))
             setStroke(5, Color.parseColor("#CC2222"))
         }
 
-        // Logo image (ic_launcher as fallback)
         val iv = ImageView(this).apply {
             try {
                 setImageResource(R.mipmap.ic_launcher)
@@ -185,7 +250,6 @@ class RedMagicCornerService : Service() {
         makeDraggableAndTappable(logoView, lp)
     }
 
-    // ─── Drag + tap logic ─────────────────────────────────
     private fun makeDraggableAndTappable(view: View, lp: WindowManager.LayoutParams) {
         var ix = 0; var iy = 0; var tx = 0f; var ty = 0f
 
@@ -201,7 +265,6 @@ class RedMagicCornerService : Service() {
                 MotionEvent.ACTION_UP -> {
                     val dx = ev.rawX - tx; val dy = ev.rawY - ty
                     if (Math.abs(dx) < 12 && Math.abs(dy) < 12) {
-                        // Tap → toggle panel
                         if (panelVisible) removePanelSafe() else showPanel()
                     }
                     true
@@ -211,40 +274,45 @@ class RedMagicCornerService : Service() {
         }
     }
 
-    // ─── Panel build ──────────────────────────────────────
     private fun showPanel() {
         if (panelVisible) return
         panelVisible = true
 
-        val root = LinearLayout(this).apply {
+        val root = FrameLayout(this)
+        
+        // 1. Add Custom Background (Red Magic Wings)
+        val bgView = RedMagicBgView(this)
+        root.addView(bgView, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+
+        // 2. Start Glow Breathing Animation
+        glowAnimator = ValueAnimator.ofFloat(0.2f, 0.7f).apply {
+            duration = 1200
+            repeatMode = ValueAnimator.REVERSE
+            repeatCount = ValueAnimator.INFINITE
+            addUpdateListener { anim -> bgView.glowAlpha = anim.animatedValue as Float }
+            start()
+        }
+
+        // 3. Add Content Layout
+        val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity     = Gravity.CENTER_HORIZONTAL
-            setPadding(32, 24, 32, 24)
+            // Padding so content stays inside the wing shape
+            setPadding(70, 45, 70, 30)
         }
 
-        // Dark red rounded background
-        val bg = GradientDrawable().apply {
-            shape       = GradientDrawable.RECTANGLE
-            cornerRadius = 32f
-            setColor(Color.parseColor("#EE0A0000"))
-            setStroke(3, Color.parseColor("#CC2222"))
-        }
-        root.background = bg
-
-        // ── Header ──
         val header = TextView(this).apply {
-            text      = "GAME CORNER"
-            textSize  = 11f
-            setTextColor(Color.parseColor("#FF4444"))
+            text      = "RED MAGIC"
+            textSize  = 13f
+            setTextColor(Color.parseColor("#FF2222"))
             typeface  = Typeface.DEFAULT_BOLD
             gravity   = Gravity.CENTER
-            letterSpacing = 0.15f
+            letterSpacing = 0.2f
         }
-        root.addView(header, LinearLayout.LayoutParams(
+        content.addView(header, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { setMargins(0, 0, 0, 18) })
+        ).apply { setMargins(0, 0, 0, 20) })
 
-        // ── Live stats row ──
         val statsRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity     = Gravity.CENTER
@@ -260,14 +328,13 @@ class RedMagicCornerService : Service() {
         statsRow.addView(tvRam!!.parent as View)
         statsRow.addView(tvBat!!.parent as View)
         statsRow.addView(tvTemp!!.parent as View)
-        root.addView(statsRow)
+        content.addView(statsRow)
 
-        // ── Feature buttons grid ──
         val visibleFeats = FEATURES.filter { it.first in allowedFeatures }
         if (visibleFeats.isNotEmpty()) {
-            val div = View(this).apply { setBackgroundColor(Color.parseColor("#33FF4444")) }
-            root.addView(div, LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 1).apply { setMargins(0, 4, 0, 16) })
+            val div = View(this).apply { setBackgroundColor(Color.parseColor("#33FF0000")) }
+            content.addView(div, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 2).apply { setMargins(20, 8, 20, 16) })
 
             val grid = GridLayout(this).apply {
                 columnCount = 4
@@ -276,41 +343,57 @@ class RedMagicCornerService : Service() {
             visibleFeats.forEach { (_, label, emoji) ->
                 grid.addView(buildFeatureBtn(emoji, label))
             }
-            root.addView(grid, LinearLayout.LayoutParams(
+            content.addView(grid, LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply { setMargins(0, 0, 0, 8) })
         }
 
-        // ── Close button ──
         val closeBtn = TextView(this).apply {
             text     = "✕  Tutup"
             textSize = 10f
             setTextColor(Color.parseColor("#FF6666"))
             gravity  = Gravity.CENTER
             setPadding(32, 14, 32, 14)
-            val d = GradientDrawable().apply {
+            background = GradientDrawable().apply {
                 cornerRadius = 24f
                 setColor(Color.parseColor("#33FF0000"))
                 setStroke(2, Color.parseColor("#66FF0000"))
             }
-            background = d
         }
         closeBtn.setOnClickListener { removePanelSafe() }
-        root.addView(closeBtn, LinearLayout.LayoutParams(
+        content.addView(closeBtn, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { gravity = Gravity.CENTER_HORIZONTAL; setMargins(0, 12, 0, 0) })
+        ).apply { gravity = Gravity.CENTER_HORIZONTAL; setMargins(0, 16, 0, 10) })
 
+        root.addView(content, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT))
+
+        // Set LayoutParams & add to WindowManager
         val lp = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             overlayType(),
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
-        ).apply { gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; y = 60 }
+        ).apply { 
+            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            y = 300 // Start position offscreen or lower
+        }
 
         try {
             wm.addView(root, lp)
-            panelView = root
+            panelContainer = root
+
+            // Slide up animation
+            slideAnimator = ValueAnimator.ofInt(300, 60).apply {
+                duration = 400
+                interpolator = DecelerateInterpolator()
+                addUpdateListener { anim ->
+                    lp.y = anim.animatedValue as Int
+                    try { wm.updateViewLayout(root, lp) } catch (_: Exception) {}
+                }
+                start()
+            }
+
         } catch (e: Exception) { panelVisible = false }
 
         updateStatViews()
@@ -320,23 +403,22 @@ class RedMagicCornerService : Service() {
         val chip = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity     = Gravity.CENTER
-            setPadding(20, 10, 20, 10)
-            val d = GradientDrawable().apply {
+            setPadding(20, 12, 20, 12)
+            background = GradientDrawable().apply {
                 cornerRadius = 14f
-                setColor(Color.parseColor("#22FF3333"))
-                setStroke(1, Color.parseColor("#44FF3333"))
+                setColor(Color.parseColor("#22FF0000"))
+                setStroke(2, Color.parseColor("#55FF0000"))
             }
-            background = d
         }
         val lbl = TextView(this).apply {
             text      = label
             textSize  = 7f
-            setTextColor(Color.parseColor("#88FFFFFF"))
+            setTextColor(Color.parseColor("#AAFFFFFF"))
             gravity   = Gravity.CENTER
         }
         val tv = TextView(this).apply {
             text      = initialVal
-            textSize  = 10f
+            textSize  = 11f
             setTextColor(Color.WHITE)
             typeface  = Typeface.DEFAULT_BOLD
             gravity   = Gravity.CENTER
@@ -346,8 +428,6 @@ class RedMagicCornerService : Service() {
         chip.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply { setMargins(8, 0, 8, 0) }
-        // Return the value TextView, but chip is added to parent
-        // We'll tag the chip on the TextView so we can find it
         tv.tag = chip
         return tv
     }
@@ -356,61 +436,58 @@ class RedMagicCornerService : Service() {
         val cell = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity     = Gravity.CENTER
-            setPadding(20, 18, 20, 18)
+            setPadding(24, 20, 24, 20)
         }
         val icon = TextView(this).apply {
             text     = emoji
-            textSize = 20f
+            textSize = 22f
             gravity  = Gravity.CENTER
         }
         val lbl = TextView(this).apply {
             text      = label
-            textSize  = 7f
-            setTextColor(Color.parseColor("#CCFFFFFF"))
+            textSize  = 8f
+            setTextColor(Color.parseColor("#DDFFFFFF"))
             gravity   = Gravity.CENTER
         }
         cell.addView(icon)
         cell.addView(lbl)
 
-        val bg = GradientDrawable().apply {
-            cornerRadius = 16f
-            setColor(Color.parseColor("#22FF3333"))
-            setStroke(1, Color.parseColor("#44CC0000"))
+        cell.background = GradientDrawable().apply {
+            cornerRadius = 18f
+            setColor(Color.parseColor("#22FF0000"))
+            setStroke(2, Color.parseColor("#55FF0000"))
         }
-        cell.background = bg
 
-        val gp = GridLayout.LayoutParams().apply {
+        cell.layoutParams = GridLayout.LayoutParams().apply {
             width  = GridLayout.LayoutParams.WRAP_CONTENT
             height = GridLayout.LayoutParams.WRAP_CONTENT
-            setMargins(8, 8, 8, 8)
+            setMargins(10, 10, 10, 10)
         }
-        cell.layoutParams = gp
 
-        // Toggle highlight on tap
         var on = false
         cell.setOnClickListener {
             on = !on
-            val newBg = GradientDrawable().apply {
-                cornerRadius = 16f
-                setColor(if (on) Color.parseColor("#44FF0000") else Color.parseColor("#22FF3333"))
-                setStroke(if (on) 2 else 1, if (on) Color.parseColor("#CCFF0000") else Color.parseColor("#44CC0000"))
+            cell.background = GradientDrawable().apply {
+                cornerRadius = 18f
+                setColor(if (on) Color.parseColor("#55FF0000") else Color.parseColor("#22FF0000"))
+                setStroke(if (on) 3 else 2, if (on) Color.parseColor("#FFFF0000") else Color.parseColor("#55FF0000"))
             }
-            cell.background = newBg
         }
         return cell
     }
 
     private fun removePanelSafe() {
+        slideAnimator?.cancel()
+        glowAnimator?.cancel()
         panelVisible = false
-        panelView?.let {
+        panelContainer?.let {
             try { wm.removeView(it) } catch (_: Exception) {}
         }
-        panelView = null
+        panelContainer = null
         tvCpu  = null; tvRam  = null
         tvBat  = null; tvTemp = null
     }
 
-    // ─── Stats loop ───────────────────────────────────────
     private fun startStatsLoop() {
         statsRunnable = object : Runnable {
             override fun run() {
@@ -423,7 +500,6 @@ class RedMagicCornerService : Service() {
     }
 
     private fun fetchStats() {
-        // CPU
         try {
             val r1 = RandomAccessFile("/proc/stat", "r")
             val l1 = r1.readLine(); r1.close()
@@ -438,7 +514,6 @@ class RedMagicCornerService : Service() {
             cpuPct = if (dT > 0) ((dT - dI).toDouble() / dT * 100) else 0.0
         } catch (_: Exception) { cpuPct = 0.0 }
 
-        // RAM
         val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         val mi = ActivityManager.MemoryInfo()
         am.getMemoryInfo(mi)
