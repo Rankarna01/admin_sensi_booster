@@ -11,6 +11,7 @@ import '../../core/constants/app_colors.dart';
 import '../../providers/client_provider.dart';
 import '../feature/smart_touch_dashboard.dart' as import_dashboard;
 import '../feature/game_launcher_view.dart' as import_launcher;
+import '../feature/red_magic_view.dart' as import_redmagic;
 
 class HomeView extends ConsumerStatefulWidget {
   const HomeView({super.key});
@@ -449,22 +450,11 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
               ),
             ),
             
-            // RedMagic Button
             GestureDetector(
               onTap: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    backgroundColor: AppColors.surface,
-                    title: Text("Info", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w700)),
-                    content: Text("Fitur RedMagic sedang dalam pengembangan.", style: GoogleFonts.inter(color: AppColors.textMuted)),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: Text("OK", style: GoogleFonts.inter(color: AppColors.neonGreen, fontWeight: FontWeight.w600)),
-                      ),
-                    ],
-                  ),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const import_redmagic.RedMagicView()),
                 );
               },
               child: _buildSpecialItem(

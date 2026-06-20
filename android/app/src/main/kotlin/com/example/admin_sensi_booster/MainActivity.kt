@@ -1,11 +1,15 @@
 package com.example.admin_sensi_booster
 
 import android.app.Activity
+import android.app.ActivityManager
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.net.VpnService
 import android.net.Uri
+import android.os.BatteryManager
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -14,6 +18,7 @@ import android.content.ComponentName
 import android.content.ServiceConnection
 import android.os.IBinder
 import android.util.Log
+import java.io.RandomAccessFile
 
 class MainActivity : FlutterActivity() {
     private val VPN_CHANNEL = "com.mfw.sensi_booster/vpn"
@@ -21,6 +26,7 @@ class MainActivity : FlutterActivity() {
     private val CROSSHAIR_CHANNEL = "com.mfw.sensi_booster/crosshair"
     private val AUTOCLICKER_CHANNEL = "com.mfw.sensi_booster/autoclicker"
     private val GAME_CHANNEL = "com.mfw.sensi_booster/game"
+    private val REDMAGIC_CORNER_CHANNEL = "com.mfw.sensi_booster/redmagic_corner"
     private val VPN_REQUEST_CODE = 0x0F
     private val OVERLAY_REQUEST_CODE = 0x10
     private var pendingMode = "Normal"
@@ -213,6 +219,56 @@ class MainActivity : FlutterActivity() {
                     stopService(Intent(this, FloatingIconService::class.java))
                     result.success(true)
                 }
+                "getDeviceStats" -> {
+                    try {
+                        // CPU usage from /proc/stat
+                        var cpuPercent = 0.0
+                        try {
+                            val stat1 = RandomAccessFile("/proc/stat", "r")
+                            val line1 = stat1.readLine(); stat1.close()
+                            val parts1 = line1.trim().split("\\s+".toRegex()).drop(1).map { it.toLong() }
+                            val idle1   = parts1[3]
+                            val total1  = parts1.sum()
+                            Thread.sleep(200)
+                            val stat2 = RandomAccessFile("/proc/stat", "r")
+                            val line2 = stat2.readLine(); stat2.close()
+                            val parts2 = line2.trim().split("\\s+".toRegex()).drop(1).map { it.toLong() }
+                            val idle2   = parts2[3]
+                            val total2  = parts2.sum()
+                            val dIdle   = idle2  - idle1
+                            val dTotal  = total2 - total1
+                            cpuPercent  = if (dTotal > 0) ((dTotal - dIdle).toDouble() / dTotal * 100) else 0.0
+                        } catch (_: Exception) {}
+
+                        // RAM
+                        val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+                        val mi = ActivityManager.MemoryInfo()
+                        am.getMemoryInfo(mi)
+                        val ramTotal = mi.totalMem.toDouble() / (1024.0 * 1024.0 * 1024.0)
+                        val ramUsed  = (mi.totalMem - mi.availMem).toDouble() / (1024.0 * 1024.0 * 1024.0)
+
+                        // Battery
+                        val batteryIntent = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+                        val level   = batteryIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, 0)   ?: 0
+                        val scale   = batteryIntent?.getIntExtra(BatteryManager.EXTRA_SCALE, 100) ?: 100
+                        val battery = if (scale > 0) (level * 100 / scale) else 0
+
+                        // Temperature (in tenths of degrees Celsius)
+                        val tempRaw = batteryIntent?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) ?: 0
+                        val temp    = tempRaw / 10.0
+
+                        result.success(mapOf(
+                            "cpu"      to cpuPercent,
+                            "ramUsed"  to ramUsed,
+                            "ramTotal" to ramTotal,
+                            "battery"  to battery,
+                            "temp"     to temp,
+                            "fps"      to 60
+                        ))
+                    } catch (e: Exception) {
+                        result.error("STATS_ERROR", e.message, null)
+                    }
+                }
                 else -> result.notImplemented()
             }
         }
@@ -397,6 +453,38 @@ class MainActivity : FlutterActivity() {
                         }
                     }
                     result.success(games)
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        // ── Red Magic Corner Channel ──────────────────────────────────────────
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, REDMAGIC_CORNER_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "startCorner" -> {
+                    if (android.provider.Settings.canDrawOverlays(this)) {
+                        val features = call.argument<String>("allowedFeatures") ?: ""
+                        val intent = Intent(this, RedMagicCornerService::class.java)
+                        intent.putExtra("allowedFeatures", features)
+                        startService(intent)
+                        result.success(true)
+                    } else {
+                        // Request overlay permission
+                        val permIntent = Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            android.net.Uri.parse("package:$packageName"))
+                        startActivityForResult(permIntent, OVERLAY_REQUEST_CODE)
+                        result.success(false)
+                    }
+                }
+                "stopCorner" -> {
+                    stopService(Intent(this, RedMagicCornerService::class.java))
+                    result.success(true)
+                }
+                "isCornerRunning" -> {
+                    result.success(RedMagicCornerService.isRunning)
+                }
+                "checkOverlayPermission" -> {
+                    result.success(android.provider.Settings.canDrawOverlays(this))
                 }
                 else -> result.notImplemented()
             }

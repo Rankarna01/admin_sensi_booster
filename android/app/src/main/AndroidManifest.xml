@@ -77,6 +77,9 @@
 
         <!-- Auto Clicker Floating Overlay Service -->
         <service android:name=".AutoClickerOverlayService" android:exported="false" android:foregroundServiceType="specialUse"/>
+
+        <!-- Red Magic Game Corner Service -->
+        <service android:name=".RedMagicCornerService" android:exported="false" android:foregroundServiceType="specialUse"/>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
