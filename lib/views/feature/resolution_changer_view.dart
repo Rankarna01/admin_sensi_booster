@@ -245,7 +245,7 @@ class _ResolutionChangerViewState extends State<ResolutionChangerView> {
         ),
         title: Text("Resolution Changer", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,19 +307,26 @@ class _ResolutionChangerViewState extends State<ResolutionChangerView> {
             _buildTextField(_dpiController, "DPI", keyboardType: TextInputType.number),
             const SizedBox(height: 24),
 
-            Expanded(
-              child: _isLoadingGames
-                  ? const Center(child: CircularProgressIndicator(color: AppColors.neonGreen))
-                  : _addedGamesInfo.isEmpty
-                      ? Center(child: Text("Belum ada game", style: GoogleFonts.inter(color: Colors.white54)))
-                      : ListView.builder(
-                          itemCount: _addedGamesInfo.length,
-                          itemBuilder: (context, index) {
-                            final app = _addedGamesInfo[index];
-                            return _buildGameItem(app);
-                          },
-                        ),
-            ),
+            if (_isLoadingGames)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Center(child: CircularProgressIndicator(color: AppColors.neonGreen)),
+              )
+            else if (_addedGamesInfo.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Center(child: Text("Belum ada game", style: GoogleFonts.inter(color: Colors.white54))),
+              )
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _addedGamesInfo.length,
+                itemBuilder: (context, index) {
+                  final app = _addedGamesInfo[index];
+                  return _buildGameItem(app);
+                },
+              ),
 
             const SizedBox(height: 16),
             Row(
