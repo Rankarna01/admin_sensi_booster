@@ -38,65 +38,145 @@ import java.io.RandomAccessFile
 
 // ─── Custom View for Red Magic Background ──────────────────────────────
 class RedMagicBgView(context: Context) : View(context) {
-    private val path = Path()
     private val paintFill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#E60A0000") // Very dark red, 90% opacity
+        color = Color.parseColor("#E6050505") // Dark glass
         style = Paint.Style.FILL
     }
     private val paintStroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#CCFF0000")
+        color = Color.parseColor("#AAFF0000") // Subtle red border
         style = Paint.Style.STROKE
-        strokeWidth = 4f
+        strokeWidth = 3f
     }
     private val paintGlow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#66FF0000")
+        color = Color.parseColor("#33FF0000") // Soft red glow
         style = Paint.Style.STROKE
-        strokeWidth = 15f
-        maskFilter = BlurMaskFilter(15f, BlurMaskFilter.Blur.NORMAL)
-    }
-    private val spikePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#FF0000")
-        style = Paint.Style.FILL
+        strokeWidth = 25f
+        maskFilter = BlurMaskFilter(25f, BlurMaskFilter.Blur.OUTER)
     }
 
     var glowAlpha = 0.4f
         set(value) {
             field = value
-            paintGlow.color = Color.argb((255 * value).toInt(), 255, 0, 0)
+            paintGlow.color = Color.argb((255 * value * 0.5).toInt(), 255, 0, 0)
             invalidate()
         }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+        val r = 40f
+        val padding = 30f // Leave space for outer glow
+        
+        val rect = android.graphics.RectF(
+            padding, 
+            padding, 
+            width.toFloat() - padding, 
+            height.toFloat() - padding
+        )
+        
+        canvas.drawRoundRect(rect, r, r, paintFill)
+        canvas.drawRoundRect(rect, r, r, paintGlow)
+        canvas.drawRoundRect(rect, r, r, paintStroke)
+    }
+}
+
+// ─── Custom Vector Icons for Features ──────────────────────────────────
+class VectorIconView(context: Context, private val type: String) : View(context) {
+    private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#FF3333")
+        style = Paint.Style.STROKE
+        strokeWidth = 3f
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+    }
+    private val fillP = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#FF3333")
+        style = Paint.Style.FILL
+    }
+    
+    fun setColor(color: Int) {
+        p.color = color
+        fillP.color = color
+        invalidate()
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
         val w = width.toFloat()
         val h = height.toFloat()
-        val r = 24f
-        val wingTop = 0.16f
+        val cx = w / 2f
+        val cy = h / 2f
+        val r = Math.min(w, h) * 0.35f
 
-        path.reset()
-        path.moveTo(w * 0.04f + r, h)
-        path.quadTo(w * 0.04f, h, w * 0.04f, h - r)
-        path.lineTo(w * 0.12f, h * wingTop)
-        path.lineTo(w * 0.40f, h * wingTop)
-        path.lineTo(w * 0.43f, 0f)
-        path.lineTo(w * 0.57f, 0f)
-        path.lineTo(w * 0.60f, h * wingTop)
-        path.lineTo(w * 0.88f, h * wingTop)
-        path.lineTo(w * 0.96f, h - r)
-        path.quadTo(w * 0.96f, h, w * 0.96f - r, h)
-        path.close()
-
-        canvas.drawPath(path, paintFill)
-        canvas.drawPath(path, paintGlow)
-        canvas.drawPath(path, paintStroke)
-
-        val spike = Path()
-        spike.moveTo(w * 0.40f, h * wingTop)
-        spike.lineTo(w * 0.43f, 0f)
-        spike.lineTo(w * 0.57f, 0f)
-        spike.lineTo(w * 0.60f, h * wingTop)
-        spike.close()
-        canvas.drawPath(spike, spikePaint)
+        when (type) {
+            "floating" -> {
+                canvas.drawRect(cx - r, cy - r*0.2f, cx - r*0.4f, cy + r, p)
+                canvas.drawRect(cx - r*0.2f, cy - r*0.6f, cx + r*0.2f, cy + r, p)
+                canvas.drawRect(cx + r*0.4f, cy - r, cx + r, cy + r, p)
+            }
+            "crosshair" -> {
+                canvas.drawCircle(cx, cy, r, p)
+                canvas.drawLine(cx, cy - r*1.4f, cx, cy - r*0.5f, p)
+                canvas.drawLine(cx, cy + r*1.4f, cx, cy + r*0.5f, p)
+                canvas.drawLine(cx - r*1.4f, cy, cx - r*0.5f, cy, p)
+                canvas.drawLine(cx + r*1.4f, cy, cx + r*0.5f, cy, p)
+                canvas.drawCircle(cx, cy, r*0.2f, fillP)
+            }
+            "cpu" -> {
+                canvas.drawRect(cx - r*0.7f, cy - r*0.7f, cx + r*0.7f, cy + r*0.7f, p)
+                canvas.drawRect(cx - r*0.3f, cy - r*0.3f, cx + r*0.3f, cy + r*0.3f, p)
+                for (i in 0..2) {
+                    val y = cy - r*0.4f + i*r*0.4f
+                    canvas.drawLine(cx - r*1.1f, y, cx - r*0.7f, y, p)
+                    canvas.drawLine(cx + r*1.1f, y, cx + r*0.7f, y, p)
+                    val x = cx - r*0.4f + i*r*0.4f
+                    canvas.drawLine(x, cy - r*1.1f, x, cy - r*0.7f, p)
+                    canvas.drawLine(x, cy + r*1.1f, x, cy + r*0.7f, p)
+                }
+            }
+            "gpu" -> {
+                canvas.drawRect(cx - r*0.9f, cy - r*0.7f, cx + r*0.9f, cy + r*0.7f, p)
+                canvas.drawLine(cx - r*0.4f, cy + r*0.7f, cx - r*0.6f, cy + r*1.2f, p)
+                canvas.drawLine(cx + r*0.4f, cy + r*0.7f, cx + r*0.6f, cy + r*1.2f, p)
+                canvas.drawLine(cx - r*0.8f, cy + r*1.2f, cx + r*0.8f, cy + r*1.2f, p)
+            }
+            "ping" -> {
+                canvas.drawArc(cx - r, cy - r, cx + r, cy + r, 225f, 90f, false, p)
+                canvas.drawArc(cx - r*0.5f, cy - r*0.5f, cx + r*0.5f, cy + r*0.5f, 225f, 90f, false, p)
+                canvas.drawCircle(cx, cy + r*0.3f, r*0.15f, fillP)
+            }
+            "click" -> {
+                val path = Path()
+                path.moveTo(cx - r*0.2f, cy - r*0.8f)
+                path.lineTo(cx + r*0.6f, cy + r*0.6f)
+                path.lineTo(cx + r*0.1f, cy + r*0.6f)
+                path.lineTo(cx + r*0.1f, cy + r*1.2f)
+                path.lineTo(cx - r*0.3f, cy + r*1.2f)
+                path.lineTo(cx - r*0.3f, cy + r*0.6f)
+                path.lineTo(cx - r*0.7f, cy + r*0.6f)
+                path.close()
+                canvas.drawPath(path, p)
+            }
+            "sensi" -> {
+                val path = Path()
+                path.moveTo(cx - r*0.8f, cy + r*0.5f)
+                path.quadTo(cx - r*1.2f, cy - r*0.5f, cx - r*0.5f, cy - r*0.5f)
+                path.lineTo(cx + r*0.5f, cy - r*0.5f)
+                path.quadTo(cx + r*1.2f, cy - r*0.5f, cx + r*0.8f, cy + r*0.5f)
+                path.quadTo(cx + r*0.4f, cy + r*0.8f, cx, cy + r*0.2f)
+                path.quadTo(cx - r*0.4f, cy + r*0.8f, cx - r*0.8f, cy + r*0.5f)
+                canvas.drawPath(path, p)
+                canvas.drawCircle(cx - r*0.5f, cy, r*0.1f, fillP)
+                canvas.drawCircle(cx + r*0.5f, cy, r*0.1f, fillP)
+            }
+            "dpi" -> {
+                canvas.drawCircle(cx - r*0.2f, cy - r*0.2f, r*0.6f, p)
+                canvas.drawLine(cx + r*0.2f, cy + r*0.2f, cx + r*0.9f, cy + r*0.9f, p)
+                canvas.drawCircle(cx - r*0.2f, cy - r*0.2f, r*0.2f, p)
+            }
+            else -> {
+                canvas.drawCircle(cx, cy, r, p)
+            }
+        }
     }
 }
 
@@ -108,14 +188,14 @@ class RedMagicCornerService : Service() {
         const val ACTION_STOP = "com.example.admin_sensi_booster.STOP_REDMAGIC_CORNER"
 
         val FEATURES = listOf(
-            Triple("floating_game",  "Floating",  "📊"),
-            Triple("crosshair",      "Crosshair", "🎯"),
-            Triple("cpu_tweak",      "CPU",       "⚡"),
-            Triple("graphics_tweak","GPU",        "🖥"),
-            Triple("latency_mode",  "Low Ping",  "📡"),
-            Triple("auto_clicker",  "AutoClick", "👆"),
-            Triple("game_lab_sensi","Sensi",     "🎮"),
-            Triple("set_dpi",       "DPI",       "🔍"),
+            Triple("floating_game",  "Floating",  "floating"),
+            Triple("crosshair",      "Crosshair", "crosshair"),
+            Triple("cpu_tweak",      "CPU",       "cpu"),
+            Triple("graphics_tweak","GPU",        "gpu"),
+            Triple("latency_mode",  "Low Ping",  "ping"),
+            Triple("auto_clicker",  "AutoClick", "click"),
+            Triple("game_lab_sensi","Sensi",     "sensi"),
+            Triple("set_dpi",       "DPI",       "dpi"),
         )
     }
 
@@ -297,21 +377,21 @@ class RedMagicCornerService : Service() {
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity     = Gravity.CENTER_HORIZONTAL
-            // Padding so content stays inside the wing shape
-            setPadding(70, 45, 70, 30)
+            setPadding(60, 60, 60, 50)
         }
 
         val header = TextView(this).apply {
             text      = "RED MAGIC"
-            textSize  = 13f
-            setTextColor(Color.parseColor("#FF2222"))
-            typeface  = Typeface.DEFAULT_BOLD
+            textSize  = 16f
+            setTextColor(Color.parseColor("#FF1111"))
+            setShadowLayer(8f, 0f, 0f, Color.parseColor("#FF0000"))
+            typeface  = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD_ITALIC)
             gravity   = Gravity.CENTER
-            letterSpacing = 0.2f
+            letterSpacing = 0.3f
         }
         content.addView(header, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { setMargins(0, 0, 0, 20) })
+        ).apply { setMargins(0, 0, 0, 24) })
 
         val statsRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -432,46 +512,53 @@ class RedMagicCornerService : Service() {
         return tv
     }
 
-    private fun buildFeatureBtn(emoji: String, label: String): View {
+    private fun buildFeatureBtn(iconType: String, label: String): View {
         val cell = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity     = Gravity.CENTER
-            setPadding(24, 20, 24, 20)
+            setPadding(8, 16, 8, 16)
         }
-        val icon = TextView(this).apply {
-            text     = emoji
-            textSize = 22f
-            gravity  = Gravity.CENTER
+        
+        val iconView = VectorIconView(this, iconType).apply {
+            layoutParams = LinearLayout.LayoutParams(40, 40).apply {
+                setMargins(0, 0, 0, 8)
+            }
         }
+        
         val lbl = TextView(this).apply {
             text      = label
-            textSize  = 8f
+            textSize  = 9f
             setTextColor(Color.parseColor("#DDFFFFFF"))
             gravity   = Gravity.CENTER
+            typeface  = Typeface.DEFAULT_BOLD
+            maxLines  = 1
         }
-        cell.addView(icon)
+        
+        cell.addView(iconView)
         cell.addView(lbl)
 
         cell.background = GradientDrawable().apply {
-            cornerRadius = 18f
-            setColor(Color.parseColor("#22FF0000"))
-            setStroke(2, Color.parseColor("#55FF0000"))
+            cornerRadius = 20f
+            setColor(Color.parseColor("#11FF0000"))
+            setStroke(2, Color.parseColor("#33FF0000"))
         }
 
         cell.layoutParams = GridLayout.LayoutParams().apply {
-            width  = GridLayout.LayoutParams.WRAP_CONTENT
+            width  = (resources.displayMetrics.density * 65).toInt()
             height = GridLayout.LayoutParams.WRAP_CONTENT
-            setMargins(10, 10, 10, 10)
+            setMargins(8, 8, 8, 8)
         }
 
         var on = false
         cell.setOnClickListener {
             on = !on
             cell.background = GradientDrawable().apply {
-                cornerRadius = 18f
-                setColor(if (on) Color.parseColor("#55FF0000") else Color.parseColor("#22FF0000"))
-                setStroke(if (on) 3 else 2, if (on) Color.parseColor("#FFFF0000") else Color.parseColor("#55FF0000"))
+                cornerRadius = 20f
+                setColor(if (on) Color.parseColor("#44FF0000") else Color.parseColor("#11FF0000"))
+                setStroke(if (on) 3 else 2, if (on) Color.parseColor("#FFFF0000") else Color.parseColor("#33FF0000"))
             }
+            iconView.setColor(if (on) Color.WHITE else Color.parseColor("#FF3333"))
+            lbl.setTextColor(if (on) Color.WHITE else Color.parseColor("#DDFFFFFF"))
         }
         return cell
     }
