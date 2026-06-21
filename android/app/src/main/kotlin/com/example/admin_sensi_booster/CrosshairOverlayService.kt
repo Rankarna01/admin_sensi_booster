@@ -34,7 +34,6 @@ class CrosshairOverlayService : Service() {
 
     private var windowManager: WindowManager? = null
     private var crosshairView: CrosshairView? = null
-    private var toggleButton: View? = null
 
     private var crosshairShape = "cross_dot"
     private var crosshairColor = "#FF0000"
@@ -71,7 +70,6 @@ class CrosshairOverlayService : Service() {
         // If view already exists, just update it (don't recreate)
         if (crosshairView != null) {
             crosshairView?.updateSettings()
-            updateToggleButtonPosition()
             return START_NOT_STICKY
         }
 
@@ -84,7 +82,6 @@ class CrosshairOverlayService : Service() {
             registerReceiver(stopReceiver, IntentFilter(ACTION_STOP_CROSSHAIR))
         }
         setupCrosshairView()
-        setupToggleButton()
         return START_NOT_STICKY
     }
 
@@ -147,87 +144,7 @@ class CrosshairOverlayService : Service() {
         }
     }
 
-    // Small touch button at crosshair center for double-tap toggle
-    private fun setupToggleButton() {
-        val density = resources.displayMetrics.density
-        val btnSize = (60 * density).toInt() // 60dp touch target
 
-        val btn = FrameLayout(this)
-
-        // Faint visual indicator
-        val bg = GradientDrawable()
-        bg.shape = GradientDrawable.OVAL
-        bg.setColor(Color.parseColor("#00000000")) // invisible
-        btn.background = bg
-
-        val layoutType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        } else {
-            WindowManager.LayoutParams.TYPE_PHONE
-        }
-
-        val toggleParams = WindowManager.LayoutParams(
-            btnSize, btnSize,
-            layoutType,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-            PixelFormat.TRANSLUCENT
-        )
-        toggleParams.gravity = Gravity.TOP or Gravity.START
-
-        // Double-tap detector
-        val gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onDoubleTap(e: MotionEvent): Boolean {
-                stopSelf()
-                return true
-            }
-
-            override fun onSingleTapUp(e: MotionEvent): Boolean {
-                // Pass single tap through to the game below
-                return false
-            }
-        })
-
-        btn.setOnTouchListener { v, event ->
-            // Let GestureDetector handle it
-            if (gestureDetector.onTouchEvent(event)) {
-                return@setOnTouchListener true // double-tap consumed
-            }
-            // For single tap and other events, don't consume (pass through to game)
-            when (event.action) {
-                MotionEvent.ACTION_UP -> {
-                    v.performClick()
-                    false // don't consume
-                }
-                else -> false // don't consume
-            }
-        }
-
-        toggleButton = btn
-        updateToggleButtonPosition()
-
-        try {
-            windowManager?.addView(btn, toggleParams)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    private fun updateToggleButtonPosition() {
-        val density = resources.displayMetrics.density
-        val btnSize = (60 * density).toInt()
-        val centerX = (resources.displayMetrics.widthPixels / 2f) + (offsetX * density)
-        val centerY = (resources.displayMetrics.heightPixels / 2f) + (offsetY * density)
-
-        // Position button centered on the crosshair
-        val params = toggleButton?.layoutParams as? WindowManager.LayoutParams
-        if (params != null) {
-            params.x = (centerX - btnSize / 2).toInt()
-            params.y = (centerY - btnSize / 2).toInt()
-            try {
-                windowManager?.updateViewLayout(toggleButton, params)
-            } catch (e: Exception) {}
-        }
-    }
 
     override fun onDestroy() {
         super.onDestroy()
@@ -235,11 +152,7 @@ class CrosshairOverlayService : Service() {
         try {
             crosshairView?.let { windowManager?.removeView(it) }
         } catch (e: Exception) {}
-        try {
-            toggleButton?.let { windowManager?.removeView(it) }
-        } catch (e: Exception) {}
         crosshairView = null
-        toggleButton = null
         windowManager = null
         try { unregisterReceiver(stopReceiver) } catch (e: Exception) {}
     }
@@ -264,8 +177,6 @@ class CrosshairOverlayService : Service() {
         private var cachedColor: Int = Color.RED
         private var cachedAlpha: Int = 255
         private var cachedOutlineAlpha: Int = 102
-        private var cachedCenterX: Float = 0f
-        private var cachedCenterY: Float = 0f
         private var cachedSize: Float = 0f
         private var cachedStrokeWidth: Float = 2f
         private var cachedShape: String = "cross_dot"
@@ -282,8 +193,6 @@ class CrosshairOverlayService : Service() {
             cachedShape = crosshairShape
 
             val density = resources.displayMetrics.density
-            cachedCenterX = (resources.displayMetrics.widthPixels / 2f) + (offsetX * density)
-            cachedCenterY = (resources.displayMetrics.heightPixels / 2f) + (offsetY * density)
             cachedSize = crosshairSize * density
             cachedStrokeWidth = (cachedSize * 0.08f).coerceAtLeast(2f)
 
@@ -301,8 +210,9 @@ class CrosshairOverlayService : Service() {
             outlinePaint.alpha = cachedOutlineAlpha
             outlinePaint.strokeWidth = cachedStrokeWidth * 2.5f
 
-            val cx = cachedCenterX
-            val cy = cachedCenterY
+            val density = resources.displayMetrics.density
+            val cx = (width / 2f) + (offsetX * density)
+            val cy = (height / 2f) + (offsetY * density)
             val s = cachedSize
 
             when (cachedShape) {

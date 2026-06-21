@@ -250,63 +250,6 @@ class _RedMagicViewState extends ConsumerState<RedMagicView> with TickerProvider
             ),
           ),
 
-          // ── Back button ──
-          Positioned(
-            top: 0,
-            left: 0,
-            child: Builder(
-              builder: (ctx) {
-                final topPad  = MediaQuery.of(ctx).padding.top;
-                final leftPad = MediaQuery.of(ctx).padding.left;
-                return GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => Navigator.pop(context),
-                  child: Container(
-                    margin: EdgeInsets.only(
-                      top:  topPad  + 12,
-                      left: leftPad + 12,
-                    ),
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.65),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white30, width: 1.2),
-                    ),
-                    child: const Center(
-                      child: Icon(Icons.arrow_back_ios_new_rounded,
-                          color: Colors.white, size: 18),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-
-          // ── Corner active badge ──
-          if (_cornerActive)
-            Positioned(
-              top: 16,
-              right: 16,
-              child: SafeArea(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.redAccent.withOpacity(0.6)),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.radio_button_checked, color: Colors.redAccent, size: 10),
-                    const SizedBox(width: 5),
-                    Text('CORNER ACTIVE',
-                        style: GoogleFonts.orbitron(
-                            color: Colors.redAccent, fontSize: 8, fontWeight: FontWeight.bold)),
-                  ]),
-                ),
-              ),
-            ),
-
           // ── Main content ──
           if (_isLoading)
             const Center(child: CircularProgressIndicator(color: Colors.redAccent))
@@ -566,6 +509,59 @@ class _RedMagicViewState extends ConsumerState<RedMagicView> with TickerProvider
                     ),
                   ),
                 ],
+              ),
+            ),
+
+          // ── Back button ──
+          Positioned(
+            top: 0,
+            left: 0,
+            child: Builder(
+              builder: (ctx) {
+                final topPad  = MediaQuery.of(ctx).padding.top;
+                final leftPad = MediaQuery.of(ctx).padding.left;
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    margin: EdgeInsets.only(
+                      top:  topPad  + 12,
+                      left: leftPad + 12,
+                    ),
+                    width: 44,
+                    height: 44,
+                    color: Colors.transparent, // kotak transparan tanpa shadow/lingkaran
+                    child: const Center(
+                      child: Icon(Icons.arrow_back_ios_new_rounded,
+                          color: Colors.white, size: 22),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+
+          // ── Corner active badge ──
+          if (_cornerActive)
+            Positioned(
+              top: 16,
+              right: 16,
+              child: SafeArea(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.redAccent.withOpacity(0.6)),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.radio_button_checked, color: Colors.redAccent, size: 10),
+                    const SizedBox(width: 5),
+                    Text('CORNER ACTIVE',
+                        style: GoogleFonts.orbitron(
+                            color: Colors.redAccent, fontSize: 8, fontWeight: FontWeight.bold)),
+                  ]),
+                ),
               ),
             ),
         ],

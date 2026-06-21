@@ -10,6 +10,7 @@ import 'dart:convert';
 import '../../core/constants/app_colors.dart';
 import '../../providers/client_provider.dart';
 import 'game_boost_landscape_view.dart';
+import 'game_intro_video_view.dart';
 
 class GameLauncherView extends ConsumerStatefulWidget {
   const GameLauncherView({super.key});
@@ -393,7 +394,7 @@ class _GameLauncherViewState extends ConsumerState<GameLauncherView> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => GameBoostLandscapeView(
+        builder: (context) => GameIntroVideoView(
           appName: name,
           packageName: packageName,
         ),

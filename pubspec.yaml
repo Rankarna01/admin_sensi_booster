@@ -36,6 +36,7 @@ dependencies:
   image_picker: ^1.2.2
   battery_plus: ^7.0.0
   lottie: ^3.3.3
+  video_player: ^2.8.6
 
 dev_dependencies:
   flutter_test:
@@ -48,4 +49,5 @@ flutter:
   assets:
     - assets/images/
     - assets/images/redmagic.png
+    - assets/images/video.mp4
     - assets/lottie/
