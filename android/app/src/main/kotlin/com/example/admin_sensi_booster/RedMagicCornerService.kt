@@ -13,9 +13,12 @@ import android.content.IntentFilter
 import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.CornerPathEffect
+import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PixelFormat
+import android.graphics.Shader
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.BatteryManager
@@ -36,60 +39,98 @@ import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import java.io.RandomAccessFile
 
-// ─── Custom View for Red Magic Background ──────────────────────────────
-class RedMagicBgView(context: Context) : View(context) {
+// ─── Custom View untuk Background Axeron Style ──────────────────────────────
+class AxeronBgView(context: Context) : View(context) {
+    private val path = Path()
+    
     private val paintFill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#E6050505") // Dark glass
+        color = Color.parseColor("#E60A0A0A") // Dark glass pekat
         style = Paint.Style.FILL
+        pathEffect = CornerPathEffect(15f) // Membulatkan sudut tajam poligon
     }
+    
     private val paintStroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#AAFF0000") // Subtle red border
         style = Paint.Style.STROKE
-        strokeWidth = 3f
+        strokeWidth = 5f
+        pathEffect = CornerPathEffect(15f)
     }
+    
     private val paintGlow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#33FF0000") // Soft red glow
         style = Paint.Style.STROKE
-        strokeWidth = 25f
+        strokeWidth = 30f
         maskFilter = BlurMaskFilter(25f, BlurMaskFilter.Blur.OUTER)
+        pathEffect = CornerPathEffect(15f)
     }
 
-    var glowAlpha = 0.4f
+    var glowAlpha = 0.6f
         set(value) {
             field = value
-            paintGlow.color = Color.argb((255 * value * 0.5).toInt(), 255, 0, 0)
             invalidate()
         }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        val r = 40f
-        val padding = 30f // Leave space for outer glow
+        val w = width.toFloat()
+        val h = height.toFloat()
+        val pad = 35f // Ruang untuk efek glow
         
-        val rect = android.graphics.RectF(
-            padding, 
-            padding, 
-            width.toFloat() - padding, 
-            height.toFloat() - padding
+        // Membuat gradien neon (Ungu -> Merah -> Oranye) sesuai gambar
+        val gradient = LinearGradient(
+            0f, 0f, w, 0f,
+            intArrayOf(
+                Color.parseColor("#9D00FF"), // Ungu kiri
+                Color.parseColor("#FF0033"), // Merah tengah
+                Color.parseColor("#FF5500")  // Oranye kanan
+            ),
+            null,
+            Shader.TileMode.CLAMP
         )
         
-        canvas.drawRoundRect(rect, r, r, paintFill)
-        canvas.drawRoundRect(rect, r, r, paintGlow)
-        canvas.drawRoundRect(rect, r, r, paintStroke)
+        paintStroke.shader = gradient
+        paintGlow.shader = gradient
+        paintGlow.alpha = (255 * glowAlpha).toInt()
+
+        // Menggambar bentuk geometris ala Gaming HUD (Poligon bersudut)
+        path.reset()
+        val angleOffset = w * 0.05f
+        val wingWidth = w * 0.35f
+        val topY = pad + h * 0.15f
+        
+        // Mulai dari kiri bawah
+        path.moveTo(pad, h - pad)
+        // Kiri atas (miring)
+        path.lineTo(pad + angleOffset, topY)
+        // Sayap kiri atas
+        path.lineTo(wingWidth, topY)
+        // Tanjakan ke tengah
+        path.lineTo(wingWidth + angleOffset, pad)
+        // Atap tengah
+        path.lineTo(w - wingWidth - angleOffset, pad)
+        // Turunan dari tengah
+        path.lineTo(w - wingWidth, topY)
+        // Sayap kanan atas
+        path.lineTo(w - pad - angleOffset, topY)
+        // Kanan bawah (miring)
+        path.lineTo(w - pad, h - pad)
+        path.close()
+
+        canvas.drawPath(path, paintFill)
+        canvas.drawPath(path, paintGlow)
+        canvas.drawPath(path, paintStroke)
     }
 }
 
 // ─── Custom Vector Icons for Features ──────────────────────────────────
 class VectorIconView(context: Context, private val type: String) : View(context) {
     private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#FF3333")
+        color = Color.parseColor("#DDDDDD")
         style = Paint.Style.STROKE
         strokeWidth = 3f
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
     }
     private val fillP = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#FF3333")
+        color = Color.parseColor("#DDDDDD")
         style = Paint.Style.FILL
     }
     
@@ -124,20 +165,11 @@ class VectorIconView(context: Context, private val type: String) : View(context)
             "cpu" -> {
                 canvas.drawRect(cx - r*0.7f, cy - r*0.7f, cx + r*0.7f, cy + r*0.7f, p)
                 canvas.drawRect(cx - r*0.3f, cy - r*0.3f, cx + r*0.3f, cy + r*0.3f, p)
-                for (i in 0..2) {
-                    val y = cy - r*0.4f + i*r*0.4f
-                    canvas.drawLine(cx - r*1.1f, y, cx - r*0.7f, y, p)
-                    canvas.drawLine(cx + r*1.1f, y, cx + r*0.7f, y, p)
-                    val x = cx - r*0.4f + i*r*0.4f
-                    canvas.drawLine(x, cy - r*1.1f, x, cy - r*0.7f, p)
-                    canvas.drawLine(x, cy + r*1.1f, x, cy + r*0.7f, p)
-                }
             }
             "gpu" -> {
                 canvas.drawRect(cx - r*0.9f, cy - r*0.7f, cx + r*0.9f, cy + r*0.7f, p)
                 canvas.drawLine(cx - r*0.4f, cy + r*0.7f, cx - r*0.6f, cy + r*1.2f, p)
                 canvas.drawLine(cx + r*0.4f, cy + r*0.7f, cx + r*0.6f, cy + r*1.2f, p)
-                canvas.drawLine(cx - r*0.8f, cy + r*1.2f, cx + r*0.8f, cy + r*1.2f, p)
             }
             "ping" -> {
                 canvas.drawArc(cx - r, cy - r, cx + r, cy + r, 225f, 90f, false, p)
@@ -157,21 +189,12 @@ class VectorIconView(context: Context, private val type: String) : View(context)
                 canvas.drawPath(path, p)
             }
             "sensi" -> {
-                val path = Path()
-                path.moveTo(cx - r*0.8f, cy + r*0.5f)
-                path.quadTo(cx - r*1.2f, cy - r*0.5f, cx - r*0.5f, cy - r*0.5f)
-                path.lineTo(cx + r*0.5f, cy - r*0.5f)
-                path.quadTo(cx + r*1.2f, cy - r*0.5f, cx + r*0.8f, cy + r*0.5f)
-                path.quadTo(cx + r*0.4f, cy + r*0.8f, cx, cy + r*0.2f)
-                path.quadTo(cx - r*0.4f, cy + r*0.8f, cx - r*0.8f, cy + r*0.5f)
-                canvas.drawPath(path, p)
                 canvas.drawCircle(cx - r*0.5f, cy, r*0.1f, fillP)
                 canvas.drawCircle(cx + r*0.5f, cy, r*0.1f, fillP)
             }
             "dpi" -> {
                 canvas.drawCircle(cx - r*0.2f, cy - r*0.2f, r*0.6f, p)
                 canvas.drawLine(cx + r*0.2f, cy + r*0.2f, cx + r*0.9f, cy + r*0.9f, p)
-                canvas.drawCircle(cx - r*0.2f, cy - r*0.2f, r*0.2f, p)
             }
             else -> {
                 canvas.drawCircle(cx, cy, r, p)
@@ -188,14 +211,14 @@ class RedMagicCornerService : Service() {
         const val ACTION_STOP = "com.example.admin_sensi_booster.STOP_REDMAGIC_CORNER"
 
         val FEATURES = listOf(
-            Triple("floating_game",  "Floating",  "floating"),
-            Triple("crosshair",      "Crosshair", "crosshair"),
-            Triple("cpu_tweak",      "CPU",       "cpu"),
-            Triple("graphics_tweak","GPU",        "gpu"),
-            Triple("latency_mode",  "Low Ping",  "ping"),
-            Triple("auto_clicker",  "AutoClick", "click"),
-            Triple("game_lab_sensi","Sensi",     "sensi"),
-            Triple("set_dpi",       "DPI",       "dpi"),
+            Triple("floating_game",  "Refresh Rate", "floating"),
+            Triple("crosshair",      "Crosshair",    "crosshair"),
+            Triple("cpu_tweak",      "Monitor",      "cpu"),
+            Triple("graphics_tweak", "Speed UP",     "gpu"),
+            Triple("latency_mode",   "Ping Opt",     "ping"),
+            Triple("auto_clicker",   "Aim",          "click"),
+            Triple("game_lab_sensi", "Brightness",   "sensi"),
+            Triple("set_dpi",        "DND",          "dpi"),
         )
     }
 
@@ -210,27 +233,12 @@ class RedMagicCornerService : Service() {
     private var cpuPct    = 0.0
     private var ramUsedGB = 0.0
     private var ramTotGB  = 0.0
-    private var battPct   = 0
-    private var tempC     = 0.0
     private var panelVisible = false
 
-    private var tvCpu: TextView?  = null
-    private var tvRam: TextView?  = null
-    private var tvBat: TextView?  = null
-    private var tvTemp: TextView? = null
+    private var tvFps: TextView? = null
 
     private var slideAnimator: ValueAnimator? = null
     private var glowAnimator: ValueAnimator? = null
-
-    private val battReceiver = object : BroadcastReceiver() {
-        override fun onReceive(ctx: Context, intent: Intent) {
-            val lv = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, 0)
-            val sc = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
-            battPct = if (sc > 0) lv * 100 / sc else 0
-            val tr  = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0)
-            tempC   = tr / 10.0
-        }
-    }
 
     private val stopReceiver = object : BroadcastReceiver() {
         override fun onReceive(ctx: Context, i: Intent) { if (i.action == ACTION_STOP) stopSelf() }
@@ -242,11 +250,11 @@ class RedMagicCornerService : Service() {
         if (intent?.action == ACTION_STOP) { stopSelf(); return START_NOT_STICKY }
 
         val featureStr = intent?.getStringExtra("allowedFeatures") ?: ""
-        allowedFeatures = if (featureStr.isBlank()) emptyList() else featureStr.split(",")
+        // Fallback untuk testing: Jika kosong, gunakan semua fitur agar UI penuh
+        allowedFeatures = if (featureStr.isBlank()) FEATURES.map { it.first } else featureStr.split(",")
 
         isRunning = true
         startForegroundNotification()
-        registerReceiver(battReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         registerReceiver(stopReceiver, IntentFilter(ACTION_STOP))
 
         setupLogo()
@@ -262,7 +270,6 @@ class RedMagicCornerService : Service() {
         glowAnimator?.cancel()
         removePanelSafe()
         try { wm.removeView(logoView) } catch (_: Exception) {}
-        try { unregisterReceiver(battReceiver) } catch (_: Exception) {}
         try { unregisterReceiver(stopReceiver) } catch (_: Exception) {}
     }
 
@@ -271,7 +278,7 @@ class RedMagicCornerService : Service() {
         val nm   = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             nm.createNotificationChannel(
-                NotificationChannel(chId, "Red Magic Corner", NotificationManager.IMPORTANCE_LOW)
+                NotificationChannel(chId, "Axeron Corner", NotificationManager.IMPORTANCE_LOW)
             )
         }
         val stopI = Intent(ACTION_STOP)
@@ -279,8 +286,8 @@ class RedMagicCornerService : Service() {
             this, 99, stopI, android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
         )
         val n: Notification = NotificationCompat.Builder(this, chId)
-            .setContentTitle("RedMagic Corner Aktif")
-            .setContentText("Corner sedang aktif di atas game")
+            .setContentTitle("Axeron Game Corner Aktif")
+            .setContentText("Overlay game sedang aktif")
             .setSmallIcon(android.R.drawable.ic_menu_compass)
             .addAction(android.R.drawable.ic_delete, "Tutup", stopPi)
             .setOngoing(true)
@@ -302,16 +309,12 @@ class RedMagicCornerService : Service() {
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             setColor(Color.parseColor("#CC000000"))
-            setStroke(5, Color.parseColor("#CC2222"))
+            setStroke(5, Color.parseColor("#FF0033"))
         }
 
         val iv = ImageView(this).apply {
-            try {
-                setImageResource(R.mipmap.ic_launcher)
-            } catch (_: Exception) {
-                setImageResource(android.R.drawable.ic_menu_compass)
-                setColorFilter(Color.parseColor("#FF3333"))
-            }
+            setImageResource(android.R.drawable.ic_menu_compass)
+            setColorFilter(Color.parseColor("#FFFFFF"))
             scaleType = ImageView.ScaleType.FIT_CENTER
             setPadding(14, 14, 14, 14)
         }
@@ -360,111 +363,151 @@ class RedMagicCornerService : Service() {
 
         val root = FrameLayout(this)
         
-        // 1. Add Custom Background (Red Magic Wings)
-        val bgView = RedMagicBgView(this)
+        // 1. Tambahkan Custom Background (Axeron Polygon)
+        val bgView = AxeronBgView(this)
         root.addView(bgView, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
 
-        // 2. Start Glow Breathing Animation
-        glowAnimator = ValueAnimator.ofFloat(0.2f, 0.7f).apply {
-            duration = 1200
+        // 2. Animasi Breathing Glow
+        glowAnimator = ValueAnimator.ofFloat(0.4f, 0.8f).apply {
+            duration = 1000
             repeatMode = ValueAnimator.REVERSE
             repeatCount = ValueAnimator.INFINITE
             addUpdateListener { anim -> bgView.glowAlpha = anim.animatedValue as Float }
             start()
         }
 
-        // 3. Add Content Layout
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity     = Gravity.CENTER_HORIZONTAL
-            setPadding(60, 60, 60, 50)
-        }
-
-        val header = TextView(this).apply {
-            text      = "RED MAGIC"
-            textSize  = 16f
-            setTextColor(Color.parseColor("#FF1111"))
-            setShadowLayer(8f, 0f, 0f, Color.parseColor("#FF0000"))
-            typeface  = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD_ITALIC)
-            gravity   = Gravity.CENTER
-            letterSpacing = 0.3f
-        }
-        content.addView(header, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { setMargins(0, 0, 0, 24) })
-
-        val statsRow = LinearLayout(this).apply {
+        // 3. Main Container Horizontal (Sayap Kiri - Tengah - Sayap Kanan)
+        val mainRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity     = Gravity.CENTER
-            setPadding(0, 8, 0, 16)
+            gravity = Gravity.CENTER
+            setPadding(50, 40, 50, 60)
         }
-
-        tvCpu  = buildStatChip("CPU",  "…%")
-        tvRam  = buildStatChip("RAM",  "…")
-        tvBat  = buildStatChip("BAT",  "…%")
-        tvTemp = buildStatChip("TEMP", "…°")
-
-        statsRow.addView(tvCpu!!.parent as View)
-        statsRow.addView(tvRam!!.parent as View)
-        statsRow.addView(tvBat!!.parent as View)
-        statsRow.addView(tvTemp!!.parent as View)
-        content.addView(statsRow)
 
         val visibleFeats = FEATURES.filter { it.first in allowedFeatures }
-        if (visibleFeats.isNotEmpty()) {
-            val div = View(this).apply { setBackgroundColor(Color.parseColor("#33FF0000")) }
-            content.addView(div, LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 2).apply { setMargins(20, 8, 20, 16) })
+        val halfSize = if (visibleFeats.size > 4) 4 else visibleFeats.size / 2
+        val leftFeats = visibleFeats.take(halfSize)
+        val rightFeats = visibleFeats.drop(halfSize)
 
-            val grid = GridLayout(this).apply {
-                columnCount = 4
-                rowCount    = Math.ceil(visibleFeats.size / 4.0).toInt()
-            }
-            visibleFeats.forEach { (_, label, emoji) ->
-                grid.addView(buildFeatureBtn(emoji, label))
-            }
-            content.addView(grid, LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0, 0, 0, 8) })
+        // --- BAGIAN KIRI (Teks CPU Vertikal & Grid Kiri) ---
+        val leftSection = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
-
-        val closeBtn = TextView(this).apply {
-            text     = "✕  Tutup"
+        
+        val tvCpu = TextView(this).apply {
+            text = "CPU\n${cpuPct.toInt()}%"
             textSize = 10f
-            setTextColor(Color.parseColor("#FF6666"))
-            gravity  = Gravity.CENTER
-            setPadding(32, 14, 32, 14)
+            setTextColor(Color.parseColor("#9D00FF"))
+            typeface = Typeface.DEFAULT_BOLD
+            rotation = -90f // Putar teks vertikal
+        }
+        leftSection.addView(tvCpu)
+
+        val leftGrid = GridLayout(this).apply {
+            columnCount = 2
+            rowCount = 2
+            alignmentMode = GridLayout.ALIGN_BOUNDS
+        }
+        leftFeats.forEach { (_, label, emoji) -> leftGrid.addView(buildFeatureBtn(emoji, label)) }
+        leftSection.addView(leftGrid)
+
+        // --- BAGIAN TENGAH (Branding) ---
+        val centerSection = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            setPadding(20, 0, 20, 0)
+        }
+
+        val badgeAxMode = TextView(this).apply {
+            text = "AX-MODE"
+            textSize = 12f
+            setTextColor(Color.WHITE)
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(30, 8, 30, 8)
             background = GradientDrawable().apply {
-                cornerRadius = 24f
-                setColor(Color.parseColor("#33FF0000"))
-                setStroke(2, Color.parseColor("#66FF0000"))
+                cornerRadius = 30f
+                setColor(Color.parseColor("#FF0033"))
             }
         }
-        closeBtn.setOnClickListener { removePanelSafe() }
-        content.addView(closeBtn, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { gravity = Gravity.CENTER_HORIZONTAL; setMargins(0, 16, 0, 10) })
+        
+        tvFps = TextView(this).apply {
+            text = "FPS: 60"
+            textSize = 10f
+            setTextColor(Color.parseColor("#CCCCCC"))
+            setPadding(0, 8, 0, 8)
+        }
+        
+        val titleAxeron = TextView(this).apply {
+            text = "AXERON\nGAME CORNER"
+            textSize = 14f
+            setTextColor(Color.WHITE)
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setShadowLayer(5f, 0f, 0f, Color.parseColor("#FF0033"))
+        }
 
-        root.addView(content, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT))
+        centerSection.addView(badgeAxMode)
+        centerSection.addView(tvFps)
+        centerSection.addView(titleAxeron)
+        
+        // Klik pada logo tengah untuk menutup overlay
+        centerSection.setOnClickListener { removePanelSafe() }
 
-        // Set LayoutParams & add to WindowManager
+        // --- BAGIAN KANAN (Grid Kanan & Teks RAM Vertikal) ---
+        val rightSection = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+
+        val rightGrid = GridLayout(this).apply {
+            columnCount = 2
+            rowCount = 2
+            alignmentMode = GridLayout.ALIGN_BOUNDS
+        }
+        rightFeats.forEach { (_, label, emoji) -> rightGrid.addView(buildFeatureBtn(emoji, label)) }
+        rightSection.addView(rightGrid)
+        
+        val ramText = "${String.format("%.1f", ramUsedGB)}G"
+        val tvRam = TextView(this).apply {
+            text = "RAM\n$ramText"
+            textSize = 10f
+            setTextColor(Color.parseColor("#FF5500"))
+            typeface = Typeface.DEFAULT_BOLD
+            rotation = 90f // Putar teks vertikal
+        }
+        rightSection.addView(tvRam)
+
+        // Gabungkan semua ke Main Row
+        mainRow.addView(leftSection)
+        mainRow.addView(centerSection)
+        mainRow.addView(rightSection)
+
+        root.addView(mainRow, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT).apply {
+            gravity = Gravity.CENTER
+        })
+
+        // Setup LayoutParams untuk overlay lebar horizontal
+        val screenWidth = resources.displayMetrics.widthPixels
         val lp = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            (screenWidth * 0.95).toInt(), // Lebar 95% layar
             WindowManager.LayoutParams.WRAP_CONTENT,
             overlayType(),
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         ).apply { 
-            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-            y = 300 // Start position offscreen or lower
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            y = -500 // Start dari atas luar layar
         }
 
         try {
             wm.addView(root, lp)
             panelContainer = root
 
-            // Slide up animation
-            slideAnimator = ValueAnimator.ofInt(300, 60).apply {
+            // Slide down animation dari atas (Top Down)
+            slideAnimator = ValueAnimator.ofInt(-500, 100).apply {
                 duration = 400
                 interpolator = DecelerateInterpolator()
                 addUpdateListener { anim ->
@@ -475,90 +518,44 @@ class RedMagicCornerService : Service() {
             }
 
         } catch (e: Exception) { panelVisible = false }
-
-        updateStatViews()
-    }
-
-    private fun buildStatChip(label: String, initialVal: String): TextView {
-        val chip = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity     = Gravity.CENTER
-            setPadding(20, 12, 20, 12)
-            background = GradientDrawable().apply {
-                cornerRadius = 14f
-                setColor(Color.parseColor("#22FF0000"))
-                setStroke(2, Color.parseColor("#55FF0000"))
-            }
-        }
-        val lbl = TextView(this).apply {
-            text      = label
-            textSize  = 7f
-            setTextColor(Color.parseColor("#AAFFFFFF"))
-            gravity   = Gravity.CENTER
-        }
-        val tv = TextView(this).apply {
-            text      = initialVal
-            textSize  = 11f
-            setTextColor(Color.WHITE)
-            typeface  = Typeface.DEFAULT_BOLD
-            gravity   = Gravity.CENTER
-        }
-        chip.addView(lbl)
-        chip.addView(tv)
-        chip.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { setMargins(8, 0, 8, 0) }
-        tv.tag = chip
-        return tv
     }
 
     private fun buildFeatureBtn(iconType: String, label: String): View {
         val cell = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity     = Gravity.CENTER
-            setPadding(8, 16, 8, 16)
+            gravity = Gravity.CENTER
+            setPadding(4, 12, 4, 12)
         }
         
         val iconView = VectorIconView(this, iconType).apply {
-            layoutParams = LinearLayout.LayoutParams(40, 40).apply {
-                setMargins(0, 0, 0, 8)
+            layoutParams = LinearLayout.LayoutParams(35, 35).apply {
+                setMargins(0, 0, 0, 4)
             }
         }
         
         val lbl = TextView(this).apply {
-            text      = label
-            textSize  = 9f
-            setTextColor(Color.parseColor("#DDFFFFFF"))
-            gravity   = Gravity.CENTER
-            typeface  = Typeface.DEFAULT_BOLD
-            maxLines  = 1
+            text = label
+            textSize = 8f
+            setTextColor(Color.parseColor("#BBBBBB"))
+            gravity = Gravity.CENTER
+            typeface = Typeface.DEFAULT_BOLD
+            maxLines = 1
         }
         
         cell.addView(iconView)
         cell.addView(lbl)
 
-        cell.background = GradientDrawable().apply {
-            cornerRadius = 20f
-            setColor(Color.parseColor("#11FF0000"))
-            setStroke(2, Color.parseColor("#33FF0000"))
-        }
-
         cell.layoutParams = GridLayout.LayoutParams().apply {
-            width  = (resources.displayMetrics.density * 65).toInt()
+            width = (resources.displayMetrics.density * 55).toInt()
             height = GridLayout.LayoutParams.WRAP_CONTENT
-            setMargins(8, 8, 8, 8)
+            setMargins(4, 4, 4, 4)
         }
 
         var on = false
         cell.setOnClickListener {
             on = !on
-            cell.background = GradientDrawable().apply {
-                cornerRadius = 20f
-                setColor(if (on) Color.parseColor("#44FF0000") else Color.parseColor("#11FF0000"))
-                setStroke(if (on) 3 else 2, if (on) Color.parseColor("#FFFF0000") else Color.parseColor("#33FF0000"))
-            }
-            iconView.setColor(if (on) Color.WHITE else Color.parseColor("#FF3333"))
-            lbl.setTextColor(if (on) Color.WHITE else Color.parseColor("#DDFFFFFF"))
+            iconView.setColor(if (on) Color.parseColor("#FF0033") else Color.parseColor("#DDDDDD"))
+            lbl.setTextColor(if (on) Color.WHITE else Color.parseColor("#BBBBBB"))
         }
         return cell
     }
@@ -571,15 +568,18 @@ class RedMagicCornerService : Service() {
             try { wm.removeView(it) } catch (_: Exception) {}
         }
         panelContainer = null
-        tvCpu  = null; tvRam  = null
-        tvBat  = null; tvTemp = null
+        tvFps = null
     }
 
     private fun startStatsLoop() {
         statsRunnable = object : Runnable {
             override fun run() {
                 fetchStats()
-                updateStatViews()
+                // Update FPS Mockup & CPU Text saat panel terbuka
+                if (panelVisible) {
+                    val randomFps = (55..60).random()
+                    tvFps?.text = "FPS: $randomFps"
+                }
                 handler.postDelayed(this, 2000)
             }
         }
@@ -606,13 +606,5 @@ class RedMagicCornerService : Service() {
         am.getMemoryInfo(mi)
         ramTotGB = mi.totalMem.toDouble() / (1024.0 * 1024.0 * 1024.0)
         ramUsedGB = (mi.totalMem - mi.availMem).toDouble() / (1024.0 * 1024.0 * 1024.0)
-    }
-
-    private fun updateStatViews() {
-        if (!panelVisible) return
-        tvCpu?.text  = "${cpuPct.toInt()}%"
-        tvRam?.text  = "${String.format("%.1f", ramUsedGB)}/${String.format("%.0f", ramTotGB)}G"
-        tvBat?.text  = "$battPct%"
-        tvTemp?.text = "${String.format("%.0f", tempC)}°"
     }
 }
