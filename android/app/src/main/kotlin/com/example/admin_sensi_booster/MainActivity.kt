@@ -329,9 +329,9 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, AUTOCLICKER_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "isEnabled" -> {
-                    val serviceName = "$packageName/.AutoClickerService"
+                    val componentName = android.content.ComponentName(packageName, AutoClickerService::class.java.name).flattenToString()
                     val enabledServices = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
-                    val isEnabled = enabledServices != null && enabledServices.contains(serviceName)
+                    val isEnabled = enabledServices != null && (enabledServices.contains(componentName) || enabledServices.contains("$packageName/.AutoClickerService"))
                     result.success(isEnabled)
                 }
                 "openSettings" -> {
