@@ -71,7 +71,7 @@ class FeatureCard extends StatelessWidget {
                                 iconTheme: IconThemeData(
                                   color: isOn ? AppColors.neonGreen : AppColors.textMuted.withOpacity(0.1),
                                   size: 45,
-                                  shadows: isOn ? [Shadow(color: AppColors.neonGreen.withOpacity(0.8), blurRadius: 8)] : null,
+                                  shadows: null, // Dihapus agar tidak terlihat mengambang
                                 ),
                               ),
                               child: iconWidget!,
@@ -169,9 +169,9 @@ class FeatureCard extends StatelessWidget {
               ),
               boxShadow: isOn ? [
                 BoxShadow(
-                  color: AppColors.neonGreen,
-                  blurRadius: 8,
-                  spreadRadius: 1,
+                  color: AppColors.neonGreen.withOpacity(0.4), // Dikurangi opacitynya
+                  blurRadius: 4,
+                  spreadRadius: 0,
                 ),
               ] : [],
             ),
