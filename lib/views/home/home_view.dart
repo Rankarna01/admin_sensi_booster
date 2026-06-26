@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:installed_apps/app_info.dart';
 import 'package:installed_apps/installed_apps.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/constants/app_colors.dart';
 import '../../providers/client_provider.dart';
 import '../feature/smart_touch_dashboard.dart' as import_dashboard;
@@ -397,7 +398,7 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
               children: [
                 Text(
                   "My Games",
-                  style: GoogleFonts.inter(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
+                  style: GoogleFonts.orbitron(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 0.5),
                 ),
                 GestureDetector(
                   onTap: _showKelolaGamesBottomSheet,
@@ -446,7 +447,8 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
               },
               child: _buildSpecialItem(
                 title: "Monitoring ROG",
-                iconWidget: const Icon(Icons.laptop_chromebook, color: Colors.redAccent, size: 24), // Placeholder icon
+                iconWidget: SvgPicture.asset('assets/images/logo-rog.svg', width: 26, height: 26),
+                glowColor: const Color(0xFFFF3B30),
               ),
             ),
             
@@ -459,7 +461,14 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
               },
               child: _buildSpecialItem(
                 title: "RedMagic",
-                iconWidget: const Icon(Icons.sports_esports, color: Colors.redAccent, size: 24), // Placeholder icon
+                iconWidget: Image.asset(
+                  'assets/images/red-magic.png',
+                  width: 26,
+                  height: 26,
+                  filterQuality: FilterQuality.high,
+                  errorBuilder: (_, __, ___) => const Icon(Icons.sports_esports, color: Color(0xFFFF3B30), size: 26),
+                ),
+                glowColor: const Color(0xFFFF3B30),
               ),
             ),
           ],
@@ -495,7 +504,7 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(app.name ?? "Unknown", style: GoogleFonts.inter(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                Text(app.name ?? "Unknown", style: GoogleFonts.orbitron(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
                 Text(app.packageName ?? "", style: GoogleFonts.inter(color: AppColors.textMuted, fontSize: 12)),
               ],
             ),
@@ -514,30 +523,51 @@ class _HomeViewState extends ConsumerState<HomeView> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildSpecialItem({required String title, required Widget iconWidget}) {
+  Widget _buildSpecialItem({required String title, required Widget iconWidget, Color glowColor = AppColors.neonGreen}) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        gradient: LinearGradient(
+          colors: [AppColors.card, AppColors.card.withOpacity(0.85)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: glowColor.withOpacity(0.35), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: glowColor.withOpacity(0.1),
+            blurRadius: 14,
+            spreadRadius: 1,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
           Container(
-            width: 46, height: 46,
+            width: 48, height: 48,
             decoration: BoxDecoration(
-              color: Colors.black26,
+              color: glowColor.withOpacity(0.15),
               shape: BoxShape.circle,
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: glowColor.withOpacity(0.5), width: 1.5),
             ),
             child: Center(child: iconWidget),
           ),
           const SizedBox(width: 16),
           Expanded(
-            child: Text(title, style: GoogleFonts.inter(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+            child: Text(
+              title,
+              style: GoogleFonts.orbitron(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+              ),
+            ),
           ),
+          Icon(Icons.arrow_forward_ios_rounded, color: glowColor.withOpacity(0.8), size: 16),
         ],
       ),
     );

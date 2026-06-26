@@ -185,11 +185,11 @@ class _FeatureViewState extends ConsumerState<FeatureView> {
               children: [
                 Text(
                   "ADVANCED TWEAKS",
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.orbitron(
                     color: AppColors.neonGreen,
                     fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.0,
                   ),
                 ),
                 Container(

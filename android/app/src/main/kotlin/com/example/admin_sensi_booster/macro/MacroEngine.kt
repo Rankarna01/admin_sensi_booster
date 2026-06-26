@@ -4,9 +4,9 @@ object MacroEngine {
     private var isRunning = false
     private var macroThread: Thread? = null
 
-    // ID unik untuk jari virtual agar tidak bentrok
-    const val DUMMY_FINGER_ID = 9
-    const val CLICK_FINGER_ID = 10
+    // Standar Pointer ID Android (Mulai dari 0 & 1 agar tidak di-reject game/sistem)
+    const val JOYSTICK_FINGER_ID = 0
+    const val CLICK_FINGER_ID = 1
 
     fun startAutoClick(x: Int, y: Int, delayMs: Int) {
         if (isRunning) return

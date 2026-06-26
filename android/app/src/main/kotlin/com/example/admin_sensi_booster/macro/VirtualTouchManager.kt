@@ -89,7 +89,7 @@ object VirtualTouchManager {
             0, 
             1.0f, 
             1.0f, 
-            99, // Kembalikan ke 99 agar aman
+            0, // deviceId standar agar tidak di-reject game
             0, 
             InputDevice.SOURCE_TOUCHSCREEN, 
             0 // Hapus FLAG_IS_ACCESSIBILITY_EVENT karena menyebabkan system crash jika dikirim dari luar system server
