@@ -11,6 +11,20 @@ class AppColors {
   static const Color neonGreen = Color(0xFF4ADE80); // Hijau utama
   static const Color neonGreenDark = Color(0xFF22C55E); // Hijau lebih gelap (pressed state)
   static const Color neonGreenSoft = Color(0xFF166534); // Hijau sangat redup (background glow)
+
+  // Neon Orange Palette (Game Corner "AX-MODE" style panel)
+  static const Color neonOrange = Color(0xFFFF7A1A); // Oranye utama
+  static const Color neonOrangeDark = Color(0xFFE85D04); // Oranye lebih gelap (pressed state)
+
+  // RGB accent gradient untuk CPU/RAM level bar, urut dari ujung bawah ke atas
+  static const List<Color> rgbAccentGradient = [
+    Color(0xFF4E6BFF), // biru (ujung bawah)
+    Color(0xFFB14EFF), // ungu
+    Color(0xFFFF4FA3), // pink
+    Color(0xFFFF5757), // merah karang
+    Color(0xFFFF8C00), // oranye
+    Color(0xFFFFA500), // oranye terang (dekat header)
+  ];
   
   // Teks & Garis
   static const Color textWhite = Color(0xFFF1F5F9); // Putih lembut (tidak terlalu menyilaukan)

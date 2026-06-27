@@ -130,7 +130,7 @@ class _GameCornerPanelState extends State<GameCornerPanel> with SingleTickerProv
               child: Center(
                 child: Text(
                   "ADVANCED",
-                  style: GoogleFonts.orbitron(color: Colors.black, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2.0),
+                  style: GoogleFonts.orbitron(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2.0),
                 ),
               ),
             ),
@@ -144,7 +144,7 @@ class _GameCornerPanelState extends State<GameCornerPanel> with SingleTickerProv
                 children: [
                   Text(
                     "ROG THEME",
-                    style: GoogleFonts.inter(color: AppColors.neonGreen, fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 3.0),
+                    style: GoogleFonts.inter(color: AppColors.neonOrange, fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 3.0),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -157,11 +157,11 @@ class _GameCornerPanelState extends State<GameCornerPanel> with SingleTickerProv
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppColors.neonGreen.withAlpha(30),
+                        color: AppColors.neonOrange.withAlpha(30),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.neonGreen.withAlpha(100)),
+                        border: Border.all(color: AppColors.neonOrange.withAlpha(100)),
                       ),
-                      child: const Icon(Icons.keyboard_arrow_down, color: AppColors.neonGreen, size: 18),
+                      child: const Icon(Icons.keyboard_arrow_down, color: AppColors.neonOrange, size: 18),
                     ),
                   ),
                 ],
@@ -176,7 +176,7 @@ class _GameCornerPanelState extends State<GameCornerPanel> with SingleTickerProv
               width: panelWidth * 0.28,
               child: Row(
                 children: [
-                  Text("CPU", style: GoogleFonts.orbitron(color: AppColors.neonGreen, fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                  Text("CPU", style: GoogleFonts.orbitron(color: AppColors.neonOrange, fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
@@ -223,7 +223,7 @@ class _GameCornerPanelState extends State<GameCornerPanel> with SingleTickerProv
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Text("RAM", style: GoogleFonts.orbitron(color: AppColors.neonGreen, fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                  Text("RAM", style: GoogleFonts.orbitron(color: AppColors.neonOrange, fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
                 ],
               ),
             ),
@@ -270,15 +270,15 @@ class _GameCornerPanelState extends State<GameCornerPanel> with SingleTickerProv
               shape: BoxShape.circle,
               border: Border.all(
                 color: isAllowed
-                    ? (_isTouching ? AppColors.neonGreen : Colors.white.withAlpha(150))
+                    ? (_isTouching ? AppColors.neonOrange : Colors.white.withAlpha(150))
                     : Colors.white.withAlpha(40),
                 width: 1.2,
               ),
               color: isAllowed
-                  ? (_isTouching ? AppColors.neonGreen.withOpacity(0.2) : Colors.white.withAlpha(15))
+                  ? (_isTouching ? AppColors.neonOrange.withOpacity(0.2) : Colors.white.withAlpha(15))
                   : Colors.white.withAlpha(5),
               boxShadow: isAllowed && _isTouching
-                  ? [BoxShadow(color: AppColors.neonGreen.withOpacity(0.3), blurRadius: 8)]
+                  ? [BoxShadow(color: AppColors.neonOrange.withOpacity(0.3), blurRadius: 8)]
                   : null,
             ),
             child: Center(
@@ -331,6 +331,8 @@ class GameCornerPainter extends CustomPainter {
     final wingTop = h * 0.25;
     final double radius = 20.0;
 
+    final bottomCurve = (h * 0.045).clamp(6.0, 16.0);
+
     final path = Path();
     path.moveTo(w * 0.04 + radius, h);
     path.quadraticBezierTo(w * 0.04, h, w * 0.04 + 2, h - radius);
@@ -342,30 +344,61 @@ class GameCornerPainter extends CustomPainter {
     path.lineTo(w * 0.88, wingTop);
     path.lineTo(w * 0.96 - 2, h - radius);
     path.quadraticBezierTo(w * 0.96, h, w * 0.96 - radius, h);
+    // Slight curve along the bottom edge instead of a flat line
+    path.quadraticBezierTo(w * 0.5, h + bottomCurve, w * 0.04 + radius, h);
     path.close();
 
-    // Dark Background Fill
+    // Dark Background Fill (subtle vertical gradient for more depth)
     final paintFill = Paint()
-      ..color = const Color(0xFF070B0A).withAlpha(245)
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          const Color(0xFF11140F).withAlpha(245),
+          const Color(0xFF070B0A).withAlpha(245),
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, w, h))
       ..style = PaintingStyle.fill;
     canvas.drawPath(path, paintFill);
 
-    // Glowing Neon Green Stroke (dynamic intensity)
-    final glowAlpha = (90 * glowIntensity).toInt().clamp(0, 255);
-    final paintStrokeGlow = Paint()
-      ..color = AppColors.neonGreen.withAlpha(glowAlpha)
+    // Glowing Neon Orange Stroke (dynamic intensity, layered for more depth)
+    final glowAlpha = (100 * glowIntensity).toInt().clamp(0, 255);
+    final paintStrokeGlowOuter = Paint()
+      ..color = AppColors.neonOrange.withAlpha((glowAlpha * 0.6).toInt())
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 6.0 * glowIntensity
+      ..strokeWidth = 11.0 * glowIntensity
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
+    canvas.drawPath(path, paintStrokeGlowOuter);
+
+    final paintStrokeGlow = Paint()
+      ..color = AppColors.neonOrange.withAlpha(glowAlpha)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6.5 * glowIntensity
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
     canvas.drawPath(path, paintStrokeGlow);
 
     // Solid border
     final strokeAlpha = (200 * glowIntensity).toInt().clamp(100, 255);
     final paintStroke = Paint()
-      ..color = AppColors.neonGreen.withAlpha(strokeAlpha)
+      ..color = AppColors.neonOrange.withAlpha(strokeAlpha)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.8;
+      ..strokeWidth = 2.2;
     canvas.drawPath(path, paintStroke);
+
+    // Thin bevel highlight just inside the top/wing edges for a raised-metal look
+    final bevelPaint = Paint()
+      ..color = Colors.white.withAlpha((90 * glowIntensity).toInt().clamp(40, 90))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..strokeCap = StrokeCap.round;
+    final bevelPath = Path()
+      ..moveTo(w * 0.12 + 3, wingTop - 1.5)
+      ..lineTo(w * 0.40 + 2, wingTop - 1.5)
+      ..moveTo(w * 0.60 - 2, wingTop - 1.5)
+      ..lineTo(w * 0.88 - 3, wingTop - 1.5)
+      ..moveTo(w * 0.435, 2.5)
+      ..lineTo(w * 0.565, 2.5);
+    canvas.drawPath(bevelPath, bevelPaint);
 
     // ADVANCED header fill
     final headerPath = Path();
@@ -375,7 +408,7 @@ class GameCornerPainter extends CustomPainter {
     headerPath.lineTo(w * 0.60, wingTop);
     headerPath.close();
 
-    final headerFill = Paint()..color = AppColors.neonGreen..style = PaintingStyle.fill;
+    final headerFill = Paint()..color = AppColors.neonOrange..style = PaintingStyle.fill;
     canvas.drawPath(headerPath, headerFill);
 
     // Dynamic CPU & RAM blocks
@@ -400,17 +433,18 @@ class GameCornerPainter extends CustomPainter {
       blockPath.lineTo(xLeftBottom + blockWidth, yBottom);
       blockPath.close();
 
+      final blockColor = AppColors.rgbAccentGradient[i];
       final isActive = i < cpuLevel;
       final blockAlpha = isActive ? (255 * glowIntensity).toInt().clamp(150, 255) : 40;
       final paint = Paint()
-        ..color = AppColors.neonGreen.withAlpha(blockAlpha)
+        ..color = blockColor.withAlpha(blockAlpha)
         ..style = PaintingStyle.fill;
       canvas.drawPath(blockPath, paint);
 
       // Add glow for active blocks
       if (isActive && glowIntensity > 0.7) {
         final glowPaint = Paint()
-          ..color = AppColors.neonGreen.withAlpha(30)
+          ..color = blockColor.withAlpha(30)
           ..style = PaintingStyle.fill
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
         canvas.drawPath(blockPath, glowPaint);
@@ -433,16 +467,17 @@ class GameCornerPainter extends CustomPainter {
       blockPath.lineTo(xRightBottom - blockWidth, yBottom);
       blockPath.close();
 
+      final blockColor = AppColors.rgbAccentGradient[i];
       final isActive = i < ramLevel;
       final blockAlpha = isActive ? (255 * glowIntensity).toInt().clamp(150, 255) : 40;
       final paint = Paint()
-        ..color = AppColors.neonGreen.withAlpha(blockAlpha)
+        ..color = blockColor.withAlpha(blockAlpha)
         ..style = PaintingStyle.fill;
       canvas.drawPath(blockPath, paint);
 
       if (isActive && glowIntensity > 0.7) {
         final glowPaint = Paint()
-          ..color = AppColors.neonGreen.withAlpha(30)
+          ..color = blockColor.withAlpha(30)
           ..style = PaintingStyle.fill
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
         canvas.drawPath(blockPath, glowPaint);
@@ -452,7 +487,7 @@ class GameCornerPainter extends CustomPainter {
     // Center brackets
     final bracketAlpha = (180 * glowIntensity).toInt().clamp(100, 255);
     final bracketPaint = Paint()
-      ..color = AppColors.neonGreen.withAlpha(bracketAlpha)
+      ..color = AppColors.neonOrange.withAlpha(bracketAlpha)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
     canvas.drawLine(Offset(w * 0.39, h * 0.7), Offset(w * 0.42, h * 0.45), bracketPaint);
@@ -461,7 +496,7 @@ class GameCornerPainter extends CustomPainter {
     // Dividers
     final dividerAlpha = (50 * glowIntensity).toInt().clamp(20, 100);
     final dividerPaint = Paint()
-      ..color = AppColors.neonGreen.withAlpha(dividerAlpha)
+      ..color = AppColors.neonOrange.withAlpha(dividerAlpha)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
     canvas.drawLine(Offset(w * 0.35, wingTop), Offset(w * 0.32, h * 0.9), dividerPaint);
